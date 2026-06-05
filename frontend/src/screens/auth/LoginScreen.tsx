@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { StyleSheet, View, Text, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { Ionicons } from '@expo/vector-icons';
 import CustomInput from '../../components/common/CustomInput';
 import CustomButton from '../../components/common/CustomButton';
 import { Colors } from '../../theme/colors';
 
-// Define the root stack param list if needed, or just use any for now
 type RootStackParamList = {
   Login: undefined;
   Home: undefined;
@@ -30,8 +30,6 @@ const LoginScreen: React.FC = () => {
     }
     
     setError('');
-    console.log('Logging in with:', email);
-    // Redirect to Home
     navigation.navigate('Home');
   };
 
@@ -41,16 +39,22 @@ const LoginScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.iconContainer}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="chatbubble-ellipses" size={60} color={Colors.primary} />
+            </View>
+          </View>
+
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Enter your email to login</Text>
+            <Text style={styles.title}>VARTA</Text>
+            <Text style={styles.subtitle}>Sign in to continue chatting</Text>
           </View>
 
           <View style={styles.form}>
             <CustomInput
-              label="Email"
-              placeholder="example@gmail.com"
+              label="Email Address"
+              placeholder="Enter your email"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -82,18 +86,33 @@ const styles = StyleSheet.create({
     padding: 24,
     justifyContent: 'center',
   },
+  iconContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  iconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(138, 43, 226, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(138, 43, 226, 0.2)',
+  },
   header: {
     marginBottom: 40,
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: Colors.black,
+    color: Colors.text,
+    letterSpacing: 2,
   },
   subtitle: {
     fontSize: 16,
-    color: Colors.gray,
+    color: Colors.textSecondary,
     marginTop: 8,
   },
   form: {

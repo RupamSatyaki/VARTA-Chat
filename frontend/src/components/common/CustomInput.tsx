@@ -13,7 +13,7 @@ const CustomInput: React.FC<CustomInputProps> = ({ label, error, style, ...props
       {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
         style={[styles.input, error ? styles.inputError : null, style]}
-        placeholderTextColor={Colors.gray}
+        placeholderTextColor={Colors.textSecondary}
         {...props}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -29,18 +29,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.black,
+    color: Colors.text,
     marginBottom: 8,
   },
   input: {
-    height: 50,
+    height: 55,
     borderWidth: 1,
     borderColor: Colors.lightGray,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: Colors.white,
-    color: Colors.black,
+    backgroundColor: Colors.inputBackground,
+    color: Colors.text,
   },
   inputError: {
     borderColor: Colors.error,

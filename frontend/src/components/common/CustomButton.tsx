@@ -15,7 +15,7 @@ const CustomButton: React.FC<CustomButtonProps> = ({ title, onPress, loading, di
       style={[styles.button, (disabled || loading) ? styles.buttonDisabled : null]}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
       {loading ? (
         <ActivityIndicator color={Colors.white} />
@@ -29,12 +29,19 @@ const CustomButton: React.FC<CustomButtonProps> = ({ title, onPress, loading, di
 const styles = StyleSheet.create({
   button: {
     backgroundColor: Colors.primary,
-    height: 50,
-    borderRadius: 8,
+    height: 55,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     marginTop: 8,
+    // Android Shadow
+    elevation: 4,
+    // iOS Shadow
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   buttonDisabled: {
     backgroundColor: Colors.gray,
@@ -43,6 +50,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
 
