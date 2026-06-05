@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInLeft, Layout } from 'react-native-reanimated';
 import { Colors } from '../../theme/colors';
@@ -22,21 +22,29 @@ const Header: React.FC<HeaderProps> = ({ title, onSearchPress, onMenuPress }) =>
       </Animated.View>
 
       <View style={styles.rightSection}>
-        <TouchableOpacity 
-          style={styles.iconButton} 
+        <Pressable 
           onPress={onSearchPress}
-          activeOpacity={0.7}
+          style={({ pressed }) => [
+            styles.iconButton,
+            pressed && styles.iconButtonActive,
+            // @ts-ignore - hover state for web
+            Platform.OS === 'web' && { cursor: 'pointer' }
+          ]}
         >
           <Ionicons name="search" size={24} color={Colors.text} />
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity 
-          style={styles.iconButton} 
+        <Pressable 
           onPress={onMenuPress}
-          activeOpacity={0.7}
+          style={({ pressed }) => [
+            styles.iconButton,
+            pressed && styles.iconButtonActive,
+            // @ts-ignore - hover state for web
+            Platform.OS === 'web' && { cursor: 'pointer' }
+          ]}
         >
           <Ionicons name="ellipsis-vertical" size={24} color={Colors.text} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -72,7 +80,10 @@ const styles = StyleSheet.create({
     padding: 8,
     marginLeft: 10,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'transparent', // Default transparent
+  },
+  iconButtonActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Visible on press/select
   },
 });
 
