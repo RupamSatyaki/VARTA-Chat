@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import HomeScreen from '../screens/main/HomeScreen';
 import Header from '../components/common/Header';
@@ -12,8 +12,8 @@ const Tab = createBottomTabNavigator();
 const UpdatesScreen = () => (
   <View style={styles.placeholder}><Text style={styles.text}>Updates (Status) Screen</Text></View>
 );
-const BroadcastsScreen = () => (
-  <View style={styles.placeholder}><Text style={styles.text}>Broadcasts Screen</Text></View>
+const CommunitiesScreen = () => (
+  <View style={styles.placeholder}><Text style={styles.text}>Communities Screen</Text></View>
 );
 const CallsScreen = () => (
   <View style={styles.placeholder}><Text style={styles.text}>Calls Screen</Text></View>
@@ -34,7 +34,7 @@ const TabNavigator = () => {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarShowLabel: true, // Show text below icons
+          tabBarShowLabel: true,
           tabBarLabelStyle: {
             fontSize: 12,
             fontWeight: '500',
@@ -44,7 +44,7 @@ const TabNavigator = () => {
             backgroundColor: Colors.background,
             borderTopWidth: 1,
             borderTopColor: Colors.lightGray,
-            height: 65, // Increased height for labels
+            height: 65,
             paddingBottom: 8,
             paddingTop: 8,
           },
@@ -54,11 +54,10 @@ const TabNavigator = () => {
             if (route.name === 'Chats') {
               return <Ionicons name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={24} color={color} />;
             } else if (route.name === 'Updates') {
-              // WhatsApp style status/updates icon
               return <MaterialCommunityIcons name={focused ? 'circle-slice-8' : 'circle-outline'} size={24} color={color} />;
-            } else if (route.name === 'Broadcasts') {
-              // Broadcast icon
-              return <MaterialCommunityIcons name={focused ? 'bullhorn' : 'bullhorn-outline'} size={24} color={color} />;
+            } else if (route.name === 'Communities') {
+              // Community/Groups style icon
+              return <MaterialIcons name={focused ? 'groups' : 'groups-3'} size={26} color={color} />;
             } else if (route.name === 'Calls') {
               return <Ionicons name={focused ? 'call' : 'call-outline'} size={24} color={color} />;
             }
@@ -67,7 +66,7 @@ const TabNavigator = () => {
       >
         <Tab.Screen name="Chats" component={HomeScreen} />
         <Tab.Screen name="Updates" component={UpdatesScreen} />
-        <Tab.Screen name="Broadcasts" component={BroadcastsScreen} />
+        <Tab.Screen name="Communities" component={CommunitiesScreen} />
         <Tab.Screen name="Calls" component={CallsScreen} />
       </Tab.Navigator>
     </SafeAreaView>
