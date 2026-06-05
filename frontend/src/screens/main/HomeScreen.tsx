@@ -1,27 +1,15 @@
 import React from 'react';
-import { StyleSheet, View, Text, SafeAreaView, StatusBar } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CustomButton from '../../components/common/CustomButton';
-import Header from '../../components/common/Header';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
 
-  const handleSearch = () => console.log('Search pressed');
-  const handleMenu = () => console.log('Menu pressed');
-
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      
-      <Header 
-        title="VARTA" 
-        onSearchPress={handleSearch}
-        onMenuPress={handleMenu}
-      />
-
+    <View style={styles.container}>
       <View style={styles.content}>
         <Ionicons name="chatbubbles-outline" size={100} color={Colors.primary} style={styles.icon} />
         <Text style={styles.title}>Welcome to VARTA</Text>
@@ -39,7 +27,7 @@ const HomeScreen: React.FC = () => {
           />
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
