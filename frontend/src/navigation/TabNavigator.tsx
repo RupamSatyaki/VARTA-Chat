@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import HomeScreen from '../screens/main/HomeScreen';
 import Header from '../components/common/Header';
@@ -10,10 +10,10 @@ const Tab = createBottomTabNavigator();
 
 // Placeholder screens for other tabs
 const UpdatesScreen = () => (
-  <View style={styles.placeholder}><Text style={styles.text}>Updates Screen</Text></View>
+  <View style={styles.placeholder}><Text style={styles.text}>Updates (Status) Screen</Text></View>
 );
-const ChannelsScreen = () => (
-  <View style={styles.placeholder}><Text style={styles.text}>Channels Screen</Text></View>
+const BroadcastsScreen = () => (
+  <View style={styles.placeholder}><Text style={styles.text}>Broadcasts Screen</Text></View>
 );
 const CallsScreen = () => (
   <View style={styles.placeholder}><Text style={styles.text}>Calls Screen</Text></View>
@@ -33,37 +33,41 @@ const TabNavigator = () => {
 
       <Tab.Navigator
         screenOptions={({ route }) => ({
-          headerShown: false, // We use our custom global header above
+          headerShown: false,
+          tabBarShowLabel: true, // Show text below icons
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '500',
+            marginBottom: 4,
+          },
           tabBarStyle: {
             backgroundColor: Colors.background,
             borderTopWidth: 1,
             borderTopColor: Colors.lightGray,
-            height: 60,
+            height: 65, // Increased height for labels
             paddingBottom: 8,
             paddingTop: 8,
           },
           tabBarActiveTintColor: Colors.primary,
           tabBarInactiveTintColor: Colors.textSecondary,
           tabBarIcon: ({ focused, color, size }) => {
-            let iconName: any;
-
             if (route.name === 'Chats') {
-              iconName = focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline';
+              return <Ionicons name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={24} color={color} />;
             } else if (route.name === 'Updates') {
-              iconName = focused ? 'notifications' : 'notifications-outline';
-            } else if (route.name === 'Channels') {
-              iconName = focused ? 'people' : 'people-outline';
+              // WhatsApp style status/updates icon
+              return <MaterialCommunityIcons name={focused ? 'circle-slice-8' : 'circle-outline'} size={24} color={color} />;
+            } else if (route.name === 'Broadcasts') {
+              // Broadcast icon
+              return <MaterialCommunityIcons name={focused ? 'bullhorn' : 'bullhorn-outline'} size={24} color={color} />;
             } else if (route.name === 'Calls') {
-              iconName = focused ? 'call' : 'call-outline';
+              return <Ionicons name={focused ? 'call' : 'call-outline'} size={24} color={color} />;
             }
-
-            return <Ionicons name={iconName} size={24} color={color} />;
           },
         })}
       >
         <Tab.Screen name="Chats" component={HomeScreen} />
         <Tab.Screen name="Updates" component={UpdatesScreen} />
-        <Tab.Screen name="Channels" component={ChannelsScreen} />
+        <Tab.Screen name="Broadcasts" component={BroadcastsScreen} />
         <Tab.Screen name="Calls" component={CallsScreen} />
       </Tab.Navigator>
     </SafeAreaView>
