@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from '../screens/auth/LoginScreen';
-import HomeScreen from '../screens/main/HomeScreen';
+import TabNavigator from './TabNavigator';
 
 const Stack = createStackNavigator();
 
@@ -16,7 +16,7 @@ const AppNavigator: React.FC = () => {
         }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Home" component={TabNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
   );
