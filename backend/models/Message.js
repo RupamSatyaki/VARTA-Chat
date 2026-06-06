@@ -11,6 +11,11 @@ const messageSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  chat: { // New field
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Chat',
+    required: true, // A message must belong to a chat
+  },
   content: {
     type: String,
     required: true,
