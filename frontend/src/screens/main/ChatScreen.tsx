@@ -163,14 +163,23 @@ const ChatScreen: React.FC = () => {
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
           contentContainerStyle={styles.listContent}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => {
+            if (messages.length > 0) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+          onLayout={() => {
+            if (messages.length > 0) {
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }
+          }}
           showsVerticalScrollIndicator={true}
-          style={styles.flatList}
-          keyboardShouldPersistTaps="handled"
+          style={{ flex: 1 }}
           removeClippedSubviews={false}
+          keyboardShouldPersistTaps="handled"
+          overScrollMode="always"
         />
       </View>
-
       {/* 3. Footer Area (Pinned at bottom using KeyboardAvoidingView) */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
