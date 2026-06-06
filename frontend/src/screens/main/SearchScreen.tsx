@@ -10,7 +10,8 @@ import {
   StatusBar,
   Platform,
   ActivityIndicator,
-  Alert 
+  Alert,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -40,13 +41,11 @@ const SearchScreen: React.FC = () => {
     try {
       setLoading(true);
       
-      // 1. Get current user from storage to exclude from list
       const storedUserData = await AsyncStorage.getItem('userData');
       if (storedUserData) {
         setCurrentUser(JSON.parse(storedUserData));
       }
 
-      // 2. Fetch users from API
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
       const response = await fetch(`${apiUrl}/users`);
       const data = await response.json();
@@ -65,7 +64,6 @@ const SearchScreen: React.FC = () => {
   };
 
   const filteredUsers = users.filter(user => {
-    // Exclude current logged in user
     if (currentUser && user._id === currentUser._id) return false;
     
     const query = searchQuery.toLowerCase();
@@ -78,16 +76,14 @@ const SearchScreen: React.FC = () => {
 
   const renderUserItem = ({ item }: { item: User }) => (
     <TouchableOpacity style={styles.userItem} activeOpacity={0.7}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {item.name ? item.name.charAt(0) : item.number.slice(-1)}
-        </Text>
-      </View>
+      <Image 
+        source={{ uri: item.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+        style={styles.avatar} 
+      />
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{item.name || `User ${item.number.slice(-4)}`}</Text>
         <Text style={styles.userEmail}>{item.number}</Text>
       </View>
-      <Ionicons name="chatbubble-outline" size={20} color={Colors.primary} />
     </TouchableOpacity>
   );
 
@@ -95,7 +91,6 @@ const SearchScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       
-      {/* Search Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => navigation.goBack()} 
@@ -222,15 +217,8 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.primary,
-  },
-  avatarText: {
-    color: Colors.primary,
-    fontSize: 20,
-    fontWeight: 'bold',
+    borderColor: 'rgba(138, 43, 226, 0.3)',
   },
   userInfo: {
     flex: 1,
