@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client';
-import Animated, { FadeInUp, Layout } from 'react-native-reanimated';
 import { Colors } from '../../theme/colors';
 
 interface Message {
@@ -31,7 +30,7 @@ interface Message {
 const ChatScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
-  const { user, chat } = route.params; // The other user we are chatting with and the chat object
+  const { user, chat } = route.params;
   
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -48,7 +47,6 @@ const ChatScreen: React.FC = () => {
       const token = await AsyncStorage.getItem('userToken');
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
       
-      // Using the senderId/receiverId route from messageRoutes
       const response = await fetch(`${apiUrl}/messages/${userId}/${user._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -57,8 +55,7 @@ const ChatScreen: React.FC = () => {
 
       const data = await response.json();
 
-      if (response.ok) {
-        // Map backend Message model to frontend Message interface
+      if (response.ok && data.success) {
         const formattedMessages = data.data.map((m: any) => ({
           id: m._id,
           content: m.content,
@@ -72,42 +69,25 @@ const ChatScreen: React.FC = () => {
       console.error('Fetch messages error:', error);
     } finally {
       setLoading(false);
-      // Scroll to bottom after loading messages
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: false });
-      }, 100);
     }
   };
 
   useEffect(() => {
-    console.log("ChatScreen loaded with user:", user, "and chat:", chat);
     const initializeChat = async () => {
-      // 1. Get current user
       const storedUserData = await AsyncStorage.getItem('userData');
       if (storedUserData) {
         const parsedUser = JSON.parse(storedUserData);
         setCurrentUser(parsedUser);
-
-        // 2. Fetch History
         await fetchMessages(parsedUser._id);
 
-        // 3. Initialize Socket
         const socketUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace('/api', '');
         socket.current = io(socketUrl);
-
         socket.current.emit('setup', parsedUser);
         
-        socket.current.on('connected', () => {
-          setSocketConnected(true);
-          console.log('📡 Socket Connected');
-        });
-
-        // 4. Join unique chat room
+        socket.current.on('connected', () => setSocketConnected(true));
         socket.current.emit('join-chat', chat._id);
 
-        // 5. Listen for incoming messages
         socket.current.on('message-received', (newMessage: any) => {
-          // Check if message belongs to this chat
           if (newMessage.chatId === chat._id) {
             const formattedMsg: Message = {
               id: newMessage._id || Date.now().toString(),
@@ -121,19 +101,14 @@ const ChatScreen: React.FC = () => {
         });
       }
     };
-
     initializeChat();
-
     return () => {
-      if (socket.current) {
-        socket.current.disconnect();
-      }
+      if (socket.current) socket.current.disconnect();
     };
   }, [chat._id]);
 
   const handleSendMessage = () => {
     if (message.trim().length === 0 || !currentUser) return;
-    
     const newMessage: Message = {
       id: Date.now().toString(),
       content: message,
@@ -141,13 +116,7 @@ const ChatScreen: React.FC = () => {
       receiverId: user._id,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-    
-    // Emit message to backend
-    socket.current.emit('new-message', {
-      ...newMessage,
-      chatId: chat._id
-    });
-
+    socket.current.emit('new-message', { ...newMessage, chatId: chat._id });
     setMessages((prev) => [...prev, newMessage]);
     setMessage('');
   };
@@ -155,109 +124,81 @@ const ChatScreen: React.FC = () => {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === currentUser?._id;
     return (
-      <Animated.View 
-        entering={FadeInUp.springify().damping(15)}
-        layout={Layout.springify()}
-        style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}
-      >
+      <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
           <Text style={styles.messageText}>{item.content}</Text>
           <Text style={styles.timestamp}>{item.timestamp}</Text>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Custom Chat Header */}
+      {/* 1. Header (Fixed) */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        
-        <Image 
-          source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
-          style={styles.avatar} 
-        />
-        
-        <View style={styles.headerInfo}>
-          <Text style={styles.userName} numberOfLines={1}>{user.name || `User ${user.number.slice(-4)}`}</Text>
-          <View style={styles.statusRow}>
-            <View style={[styles.statusDot, { backgroundColor: socketConnected ? '#4CAF50' : Colors.gray }]} />
-            <Text style={styles.userStatus}>{socketConnected ? 'Online' : 'Connecting...'}</Text>
+        <SafeAreaView />
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.btn}>
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <Image source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} style={styles.avatar} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name} numberOfLines={1}>{user.name || user.number}</Text>
+            <Text style={styles.status}>{socketConnected ? 'Online' : 'Connecting...'}</Text>
           </View>
-        </View>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.actionIcon}>
-            <Ionicons name="videocam" size={22} color={Colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionIcon}>
-            <Ionicons name="call" size={20} color={Colors.primary} />
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.btn}><Ionicons name="videocam" size={22} color={Colors.primary} /></TouchableOpacity>
+          <TouchableOpacity style={styles.btn}><Ionicons name="call" size={20} color={Colors.primary} /></TouchableOpacity>
         </View>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <View style={styles.chatContainer}>
-          {/* Message List */}
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            style={styles.flatList}
-            contentContainerStyle={styles.messageList}
-            showsVerticalScrollIndicator={true}
-            indicatorStyle="white"
-            persistentScrollbar={true}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          />
-        </View>
+      {/* 2. Chat Area (Scrollable) */}
+      <View style={styles.chatArea}>
+        {loading && <ActivityIndicator style={styles.loader} color={Colors.primary} />}
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.listContent}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          showsVerticalScrollIndicator={true}
+          style={styles.flatList}
+          keyboardShouldPersistTaps="handled"
+          removeClippedSubviews={false}
+        />
+      </View>
 
-        {/* Input Area */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
-            <TouchableOpacity style={styles.inputIcon}>
-              <Ionicons name="happy-outline" size={24} color={Colors.textSecondary} />
-            </TouchableOpacity>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Message"
-              placeholderTextColor={Colors.textSecondary}
-              value={message}
-              onChangeText={setMessage}
-              multiline
-            />
-            
-            <TouchableOpacity style={styles.inputIcon}>
-              <Ionicons name="attach" size={24} color={Colors.textSecondary} style={{ transform: [{ rotate: '45deg' }] }} />
+      {/* 3. Footer Area (Pinned at bottom using KeyboardAvoidingView) */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        style={styles.footerWrapper}
+      >
+        <View style={styles.footerContainer}>
+          <View style={styles.footer}>
+            <View style={styles.inputBox}>
+              <TouchableOpacity style={styles.btn}><Ionicons name="happy-outline" size={24} color={Colors.textSecondary} /></TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                placeholder="Message"
+                placeholderTextColor={Colors.textSecondary}
+                value={message}
+                onChangeText={setMessage}
+                multiline
+              />
+              <TouchableOpacity style={styles.btn}><Ionicons name="attach" size={24} color={Colors.textSecondary} style={{ transform: [{ rotate: '45deg' }] }} /></TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.sendBtn} onPress={handleSendMessage}>
+              <Ionicons name={message.trim() ? "send" : "mic"} size={22} color={Colors.white} />
             </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity 
-            style={styles.sendButton} 
-            onPress={handleSendMessage}
-            activeOpacity={0.8}
-          >
-            <Ionicons 
-              name={message.length > 0 ? "send" : "mic"} 
-              size={24} 
-              color={Colors.white} 
-              style={message.length > 0 ? { marginLeft: 3 } : {}}
-            />
-          </TouchableOpacity>
+          <SafeAreaView edges={['bottom']} />
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -265,150 +206,130 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+    // Ensure container doesn't grow on web
+    height: Platform.OS === 'web' ? '100vh' : '100%',
+    maxHeight: Platform.OS === 'web' ? '100vh' : '100%',
+    overflow: 'hidden',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
     backgroundColor: Colors.surface,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.lightGray,
+    zIndex: 100,
   },
-  backButton: {
-    padding: 5,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 5 : 5,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginLeft: 5,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginHorizontal: 10,
   },
-  headerInfo: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  userName: {
+  name: {
     color: Colors.text,
     fontSize: 16,
     fontWeight: 'bold',
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 5,
-  },
-  userStatus: {
+  status: {
     color: Colors.textSecondary,
     fontSize: 12,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  chatArea: {
+    flex: 1, // Take all available space
+    backgroundColor: Colors.background,
+    overflow: 'hidden',
   },
-  actionIcon: {
-    padding: 8,
-    marginLeft: 5,
+  flatList: {
+    flex: 1,
   },
-  messageList: {
+  listContent: {
     padding: 15,
-    paddingBottom: 20,
+    paddingBottom: 20, // Space for the last message
+    flexGrow: 1,
   },
   messageWrapper: {
     marginVertical: 4,
-    width: '100%',
+    maxWidth: '85%',
   },
   myMessageWrapper: {
-    alignItems: 'flex-end',
+    alignSelf: 'flex-end',
   },
   otherMessageWrapper: {
-    alignItems: 'flex-start',
+    alignSelf: 'flex-start',
   },
   messageBubble: {
-    maxWidth: '80%',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 15,
+    borderRadius: 18,
   },
   myBubble: {
     backgroundColor: Colors.primary,
-    borderBottomRightRadius: 2,
+    borderBottomRightRadius: 4,
   },
   otherBubble: {
     backgroundColor: Colors.surface,
-    borderBottomLeftRadius: 2,
+    borderBottomLeftRadius: 4,
   },
   messageText: {
     color: Colors.white,
     fontSize: 15,
   },
   timestamp: {
-    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 10,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 3,
     alignSelf: 'flex-end',
-    marginTop: 4,
   },
-  inputContainer: {
+  footerWrapper: {
+    width: '100%',
+    zIndex: 200, // Keep in front
+  },
+  footerContainer: {
+    backgroundColor: Colors.surface,
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.lightGray,
+    width: '100%',
+  },
+  footer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    backgroundColor: 'transparent',
+    padding: 8,
   },
-  inputWrapper: {
+  inputBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.background,
     borderRadius: 25,
-    paddingHorizontal: 10,
-    minHeight: 48,
-    maxHeight: 120,
-  },
-  inputIcon: {
-    padding: 8,
+    paddingHorizontal: 5,
+    minHeight: 45,
   },
   input: {
     flex: 1,
     color: Colors.text,
     fontSize: 16,
-    paddingVertical: 8,
-    marginHorizontal: 5,
+    paddingVertical: 10,
+    maxHeight: 120,
   },
-  sendButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  btn: {
+    padding: 8,
+  },
+  sendBtn: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
     backgroundColor: Colors.primary,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     marginLeft: 8,
   },
-  keyboardView: {
-    flex: 1,
-  },
-  chatContainer: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  flatList: {
-    flex: 1,
-  },
-  // Custom scrollbar for Web
-  ...(Platform.OS === 'web' ? {
-    messageList: {
-      padding: 15,
-      paddingBottom: 20,
-      scrollbarWidth: 'thin',
-      scrollbarColor: `${Colors.primary} transparent`,
-    }
-  } : {})
+  loader: {
+    paddingVertical: 20,
+  }
 });
 
 export default ChatScreen;
