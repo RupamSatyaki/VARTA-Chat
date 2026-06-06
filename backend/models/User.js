@@ -3,13 +3,12 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Please add a name'],
     trim: true,
   },
   username: {
     type: String,
-    required: [true, 'Please add a username'],
     unique: true,
+    sparse: true,
     trim: true,
     lowercase: true,
   },
