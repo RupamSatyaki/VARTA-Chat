@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { 
+  StyleSheet, 
+  View, 
+  Text, 
+  SafeAreaView, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView,
+  Alert 
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,22 +24,53 @@ type RootStackParamList = {
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
 const LoginScreen: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [number, setNumber] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation<LoginScreenNavigationProp>();
 
-  const handleLogin = () => {
-    if (!email) {
-      setError('Please enter your email');
+  const handleLogin = async () => {
+    if (!number) {
+      setError('Please enter your phone number');
       return;
     }
-    if (!email.includes('@')) {
-      setError('Please enter a valid email');
+    if (number.length < 10) {
+      setError('Please enter a valid phone number');
       return;
     }
     
     setError('');
-    navigation.navigate('Home');
+    setLoading(true);
+
+    try {
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+      console.log(`Attempting login at: ${apiUrl}/auth/login`);
+
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ number }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('Backend response:', data);
+        // Navigate to Home on success
+        navigation.navigate('Home');
+      } else {
+        setError(data.message || 'Login failed');
+        Alert.alert('Error', data.message || 'Login failed');
+      }
+    } catch (err) {
+      console.error('API Error:', err);
+      setError('Could not connect to server');
+      Alert.alert('Connection Error', 'Please check if backend server is running.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -48,23 +88,26 @@ const LoginScreen: React.FC = () => {
 
           <View style={styles.header}>
             <Text style={styles.title}>VARTA</Text>
-            <Text style={styles.subtitle}>Sign in to continue chatting</Text>
+            <Text style={styles.subtitle}>Enter your phone number to continue</Text>
           </View>
 
           <View style={styles.form}>
             <CustomInput
-              label="Email Address"
-              placeholder="Enter your email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              label="Phone Number"
+              placeholder="+91 00000 00000"
+              value={number}
+              onChangeText={(text) => {
+                setNumber(text);
+                if (error) setError('');
+              }}
+              keyboardType="phone-pad"
               error={error}
             />
             
             <CustomButton
               title="Login"
               onPress={handleLogin}
+              loading={loading}
             />
           </View>
         </ScrollView>
