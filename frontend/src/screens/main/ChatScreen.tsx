@@ -30,7 +30,7 @@ interface Message {
 const ChatScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
-  const { user } = route.params; // The other user we are chatting with
+  const { user, chat } = route.params; // The other user we are chatting with and the chat object
   
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -60,8 +60,7 @@ const ChatScreen: React.FC = () => {
         });
 
         // 3. Join unique chat room
-        const roomID = [parsedUser._id, user._id].sort().join('-');
-        socket.current.emit('join-chat', roomID);
+        socket.current.emit('join-chat', chat._id);
 
         // 4. Listen for incoming messages
         socket.current.on('message-received', (newMessage: Message) => {
@@ -93,7 +92,7 @@ const ChatScreen: React.FC = () => {
     // Emit message to backend
     socket.current.emit('new-message', {
       ...newMessage,
-      chatId: [currentUser._id, user._id].sort().join('-')
+      chatId: chat._id
     });
 
     setMessages((prev) => [...prev, newMessage]);

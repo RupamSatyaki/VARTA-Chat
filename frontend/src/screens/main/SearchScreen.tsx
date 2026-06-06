@@ -29,7 +29,7 @@ interface User {
 
 type RootStackParamList = {
   Search: undefined;
-  Chat: { user: User };
+  Chat: { user: User; chat: any }; // Add chat parameter
 };
 
 const SearchScreen: React.FC = () => {
@@ -80,8 +80,35 @@ const SearchScreen: React.FC = () => {
     );
   });
 
-  const handleUserPress = (user: User) => {
-    navigation.navigate('Chat', { user });
+  const handleUserPress = async (user: User) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        // Handle case where token is not found, maybe navigate to Login
+        return;
+      }
+
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/chats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId: user._id }),
+      });
+
+      const chat = await response.json();
+
+      if (response.ok) {
+        navigation.navigate('Chat', { user, chat }); // Pass both user and chat
+      } else {
+        Alert.alert('Error', chat.message || 'Failed to start chat');
+      }
+    } catch (error) {
+      console.error('Start chat error:', error);
+      Alert.alert('Connection Error', 'Could not connect to server');
+    }
   };
 
   const renderUserItem = ({ item }: { item: User }) => (
