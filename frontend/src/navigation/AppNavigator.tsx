@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SearchScreen from '../screens/main/SearchScreen';
+import ChatScreen from '../screens/main/ChatScreen';
 import TabNavigator from './TabNavigator';
 import { Colors } from '../theme/colors';
 
@@ -56,6 +57,7 @@ const AppNavigator: React.FC = () => {
             animationEnabled: true,
           }}
         />
+        <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

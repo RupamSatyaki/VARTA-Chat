@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../theme/colors';
 
@@ -26,8 +27,13 @@ interface User {
   profilePic?: string;
 }
 
+type RootStackParamList = {
+  Search: undefined;
+  Chat: { user: User };
+};
+
 const SearchScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,8 +80,16 @@ const SearchScreen: React.FC = () => {
     );
   });
 
+  const handleUserPress = (user: User) => {
+    navigation.navigate('Chat', { user });
+  };
+
   const renderUserItem = ({ item }: { item: User }) => (
-    <TouchableOpacity style={styles.userItem} activeOpacity={0.7}>
+    <TouchableOpacity 
+      style={styles.userItem} 
+      activeOpacity={0.7}
+      onPress={() => handleUserPress(item)}
+    >
       <Image 
         source={{ uri: item.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
         style={styles.avatar} 
