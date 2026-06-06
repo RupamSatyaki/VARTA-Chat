@@ -98,7 +98,7 @@ const HomeScreen: React.FC = () => {
       return chat.chatName;
     }
     const otherUser = chat.users.find(u => u._id !== currentUser?._id);
-    return otherUser?.name || otherUser?.number || 'Unknown User';
+    return otherUser?.number || otherUser?.name || 'Unknown User';
   };
 
   const handleChatPress = (chat: Chat) => {
