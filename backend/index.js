@@ -58,6 +58,10 @@ console.log('   - Route initialized: /api/users (User Profile)');
 app.use('/api/messages', require('./routes/messageRoutes'));
 console.log('   - Route initialized: /api/messages (Messaging System)');
 
+// Register Chat Routes
+app.use('/api/chats', require('./routes/chatRoutes'));
+console.log('   - Route initialized: /api/chats (Chat System)');
+
 console.log('✔ All API routes successfully initialized');
 
 // 8. Socket.io Logic
