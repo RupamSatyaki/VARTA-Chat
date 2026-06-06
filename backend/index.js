@@ -35,16 +35,19 @@ console.log('✔ Middleware initialized: CORS & JSON Parser');
 // 7. Routes Initialization (Logging 5 Core Routes)
 console.log('⌛ Initializing API Routes...');
 
-// Placeholder for route registrations with logs
-const routes = [
-  { path: '/api/auth', name: 'Authentication' },
+// Register Auth Routes
+app.use('/api/auth', require('./routes/authRoutes'));
+console.log('   - Route initialized: /api/auth (Authentication)');
+
+// Placeholder for other route registrations with logs
+const otherRoutes = [
   { path: '/api/users', name: 'User Profile' },
   { path: '/api/chats', name: 'Chat Management' },
   { path: '/api/messages', name: 'Messaging System' },
   { path: '/api/communities', name: 'Communities/Groups' }
 ];
 
-routes.forEach(route => {
+otherRoutes.forEach(route => {
   // app.use(route.path, require(`./routes/${route.name.replace(' ', '')}Routes`));
   console.log(`   - Route initialized: ${route.path} (${route.name})`);
 });
