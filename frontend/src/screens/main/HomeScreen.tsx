@@ -32,7 +32,9 @@ interface Chat {
   latestMessage?: {
     content: string;
     sender: {
-      name: string;
+      _id: string;
+      name?: string;
+      number?: string;
     };
   };
 }
@@ -118,26 +120,31 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  const renderChatItem = ({ item }: { item: Chat }) => (
-    <TouchableOpacity 
-      style={styles.chatItem} 
-      activeOpacity={0.7}
-      onPress={() => handleChatPress(item)}
-    >
-      <Image 
-        source={{ uri: item.users.find(u => u._id !== currentUser?._id)?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
-        style={styles.avatar} 
-      />
-      <View style={styles.chatInfo}>
-        <Text style={styles.chatName}>{getChatDisplayName(item)}</Text>
-        <Text style={styles.lastMessage} numberOfLines={1}>
-          {item.latestMessage 
-            ? `${item.latestMessage.sender.name}: ${item.latestMessage.content}`
-            : 'No messages yet'}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderChatItem = ({ item }: { item: Chat }) => {
+    const isLatestMessageFromMe = item.latestMessage?.sender._id === currentUser?._id;
+    const senderName = item.latestMessage?.sender.name || item.latestMessage?.sender.number;
+
+    return (
+      <TouchableOpacity 
+        style={styles.chatItem} 
+        activeOpacity={0.7}
+        onPress={() => handleChatPress(item)}
+      >
+        <Image 
+          source={{ uri: item.users.find(u => u._id !== currentUser?._id)?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+          style={styles.avatar} 
+        />
+        <View style={styles.chatInfo}>
+          <Text style={styles.chatName}>{getChatDisplayName(item)}</Text>
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {item.latestMessage 
+              ? `${isLatestMessageFromMe ? 'You' : senderName}: ${item.latestMessage.content}`
+              : 'No messages yet'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
