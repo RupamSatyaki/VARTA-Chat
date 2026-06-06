@@ -75,4 +75,33 @@ const fetchChats = async (req, res) => {
   }
 };
 
-module.exports = { accessChat, fetchChats };
+/**
+ * @desc    Find a chat between two users
+ * @route   GET /api/chats/find/:firstUserId/:secondUserId
+ * @access  Private
+ */
+const findChat = async (req, res) => {
+  try {
+    const { firstUserId, secondUserId } = req.params;
+
+    const chat = await Chat.findOne({
+      isGroupChat: false,
+      $and: [
+        { users: { $elemMatch: { $eq: firstUserId } } },
+        { users: { $elemMatch: { $eq: secondUserId } } },
+      ],
+    })
+      .populate("users", "-password")
+      .populate("latestMessage");
+
+    if (chat) {
+      res.status(200).json(chat);
+    } else {
+      res.status(404).json({ message: "Chat not found" });
+    }
+  } catch (error) {
+    res.status(400).send(error.message);
+  }
+};
+
+module.exports = { accessChat, fetchChats, findChat };
