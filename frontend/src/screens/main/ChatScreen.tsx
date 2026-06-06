@@ -36,9 +36,47 @@ const ChatScreen: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   const socket = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
+
+  const fetchMessages = async (userId: string) => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('userToken');
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+      
+      // Using the senderId/receiverId route from messageRoutes
+      const response = await fetch(`${apiUrl}/messages/${userId}/${user._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Map backend Message model to frontend Message interface
+        const formattedMessages = data.data.map((m: any) => ({
+          id: m._id,
+          content: m.content,
+          senderId: m.sender,
+          receiverId: m.receiver,
+          timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }));
+        setMessages(formattedMessages);
+      }
+    } catch (error) {
+      console.error('Fetch messages error:', error);
+    } finally {
+      setLoading(false);
+      // Scroll to bottom after loading messages
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 100);
+    }
+  };
 
   useEffect(() => {
     console.log("ChatScreen loaded with user:", user, "and chat:", chat);
@@ -49,7 +87,10 @@ const ChatScreen: React.FC = () => {
         const parsedUser = JSON.parse(storedUserData);
         setCurrentUser(parsedUser);
 
-        // 2. Initialize Socket
+        // 2. Fetch History
+        await fetchMessages(parsedUser._id);
+
+        // 3. Initialize Socket
         const socketUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace('/api', '');
         socket.current = io(socketUrl);
 
@@ -60,12 +101,22 @@ const ChatScreen: React.FC = () => {
           console.log('📡 Socket Connected');
         });
 
-        // 3. Join unique chat room
+        // 4. Join unique chat room
         socket.current.emit('join-chat', chat._id);
 
-        // 4. Listen for incoming messages
-        socket.current.on('message-received', (newMessage: Message) => {
-          setMessages((prev) => [...prev, newMessage]);
+        // 5. Listen for incoming messages
+        socket.current.on('message-received', (newMessage: any) => {
+          // Check if message belongs to this chat
+          if (newMessage.chatId === chat._id) {
+            const formattedMsg: Message = {
+              id: newMessage._id || Date.now().toString(),
+              content: newMessage.content,
+              senderId: newMessage.senderId,
+              receiverId: newMessage.receiverId,
+              timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            };
+            setMessages((prev) => [...prev, formattedMsg]);
+          }
         });
       }
     };
