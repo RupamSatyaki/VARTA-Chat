@@ -111,11 +111,16 @@ io.on('connection', (socket) => {
       });
       console.log(`🔄 Chat ${chatId} updated with latest message`);
 
+      // Get sender details to include in the broadcast
+      const sender = await User.findById(senderId);
+
       // Broadcast to the receiver's room
       socket.in(receiverId).emit('message-received', {
         ...newMessageReceived,
         _id: message._id,
-        createdAt: message.createdAt
+        createdAt: message.createdAt,
+        senderName: sender?.name,
+        senderNumber: sender?.number
       });
       
       console.log(`📩 Message relayed to: ${receiverId}`);

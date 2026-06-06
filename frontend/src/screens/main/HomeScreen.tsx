@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import io from 'socket.io-client';
 import { Colors } from '../../theme/colors';
 
 interface User {
@@ -51,15 +52,57 @@ const HomeScreen: React.FC = () => {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const socket = useRef<any>(null);
 
   useEffect(() => {
     const loadData = async () => {
       const userData = await AsyncStorage.getItem('userData');
       if (userData) {
-        setCurrentUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        setCurrentUser(parsedUser);
+        
+        // Initialize Socket
+        const socketUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace('/api', '');
+        socket.current = io(socketUrl);
+        socket.current.emit('setup', parsedUser);
+
+        socket.current.on('message-received', (newMessage: any) => {
+          setChats((prevChats) => {
+            const updatedChats = prevChats.map((chat) => {
+              if (chat._id === newMessage.chatId) {
+                return {
+                  ...chat,
+                  latestMessage: {
+                    content: newMessage.content,
+                    sender: {
+                      _id: newMessage.senderId,
+                      name: newMessage.senderName, // Backend might need to send this or we fetch
+                      number: newMessage.senderNumber
+                    }
+                  }
+                };
+              }
+              return chat;
+            });
+            
+            // Move the updated chat to the top
+            const chatIndex = updatedChats.findIndex(c => c._id === newMessage.chatId);
+            if (chatIndex > -1) {
+              const [movedChat] = updatedChats.splice(chatIndex, 1);
+              return [movedChat, ...updatedChats];
+            }
+            return updatedChats;
+          });
+        });
       }
     };
     loadData();
+
+    return () => {
+      if (socket.current) {
+        socket.current.disconnect();
+      }
+    };
   }, []);
 
   useEffect(() => {
