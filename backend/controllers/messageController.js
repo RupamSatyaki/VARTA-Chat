@@ -1,4 +1,5 @@
 const Message = require('../models/Message');
+const Chat = require('../models/Chat');
 
 /**
  * @desc    Send a message
@@ -23,6 +24,11 @@ const sendMessage = async (req, res) => {
       type: type || 'text',
       status: 'sent',
       chat: chatId,
+    });
+
+    // Update the chat document with the latest message
+    await Chat.findByIdAndUpdate(chatId, {
+      latestMessage: message._id,
     });
 
     res.status(201).json({

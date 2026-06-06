@@ -31,6 +31,7 @@ const PORT = process.env.PORT || 5000;
 console.log('⌛ Loading Models...');
 const User = require('./models/User');
 const Message = require('./models/Message');
+const Chat = require('./models/Chat');
 console.log('✔ All models successfully loaded');
 
 // 5. Controllers Initialization
@@ -103,6 +104,12 @@ io.on('connection', (socket) => {
       });
 
       console.log(`💾 Message saved to DB: ${message._id}`);
+
+      // Update the chat document with the latest message
+      await Chat.findByIdAndUpdate(chatId, {
+        latestMessage: message._id,
+      });
+      console.log(`🔄 Chat ${chatId} updated with latest message`);
 
       // Broadcast to the receiver's room
       socket.in(receiverId).emit('message-received', {
