@@ -1,4 +1,14 @@
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+
+/**
+ * @desc    Generate JWT Token
+ */
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRE || '30d',
+  });
+};
 
 /**
  * @desc    Login/Register user with phone number
@@ -30,21 +40,24 @@ const login = async (req, res) => {
     } else {
       console.log(`⌛ Creating new user for number: ${number}`);
       // 2. Create new user if doesn't exist
-      // Since username is unique, we can generate a temporary one or leave it empty if sparse: true
       const tempUsername = `user_${number.slice(-4)}${Math.floor(Math.random() * 1000)}`;
       
       user = await User.create({
         number,
-        name: `User ${number.slice(-4)}`, // Default name as last 4 digits
+        name: `User ${number.slice(-4)}`,
         username: tempUsername,
         isOnline: true
       });
       console.log(`✔ New user created: ${user._id}`);
     }
 
+    // 3. Generate Token
+    const token = generateToken(user._id);
+
     res.status(200).json({
       success: true,
       message: user.isNew ? 'User registered successfully' : 'Logged in successfully',
+      token,
       data: user
     });
   } catch (error) {

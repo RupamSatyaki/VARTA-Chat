@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import CustomButton from '../../components/common/CustomButton';
 import { useNavigation } from '@react-navigation/native';
@@ -7,6 +8,16 @@ import { Colors } from '../../theme/colors';
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userData');
+      navigation.replace('Login');
+    } catch (e) {
+      console.error('Logout failed', e);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -23,7 +34,7 @@ const HomeScreen: React.FC = () => {
           <View style={styles.spacer} />
           <CustomButton
             title="Sign Out"
-            onPress={() => navigation.navigate('Login')}
+            onPress={handleLogout}
           />
         </View>
       </View>

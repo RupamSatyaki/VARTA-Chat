@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert 
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,8 +45,7 @@ const LoginScreen: React.FC = () => {
 
     try {
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
-      console.log(`Attempting login at: ${apiUrl}/auth/login`);
-
+      
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: {
@@ -57,8 +57,11 @@ const LoginScreen: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        console.log('Backend response:', data);
-        // Navigate to Home on success
+        // Store token and user data
+        await AsyncStorage.setItem('userToken', data.token);
+        await AsyncStorage.setItem('userData', JSON.stringify(data.data));
+        
+        console.log('Login successful, token stored');
         navigation.navigate('Home');
       } else {
         setError(data.message || 'Login failed');
