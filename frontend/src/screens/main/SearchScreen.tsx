@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -8,41 +8,86 @@ import {
   TouchableOpacity, 
   FlatList, 
   StatusBar,
-  Platform 
+  Platform,
+  ActivityIndicator,
+  Alert 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../theme/colors';
 
-// Mock data for users
-const USERS = [
-  { id: '1', name: 'Rupam Satyaki', email: 'rupam@gmail.com' },
-  { id: '2', name: 'John Doe', email: 'john.doe@example.com' },
-  { id: '3', name: 'Jane Smith', email: 'jane.smith@chat.com' },
-  { id: '4', name: 'Alex Johnson', email: 'alex.j@varta.com' },
-  { id: '5', name: 'Sarah Wilson', email: 'sarah.w@varta.com' },
-  { id: '6', name: 'Mike Brown', email: 'mike.b@gmail.com' },
-];
+interface User {
+  _id: string;
+  name?: string;
+  username?: string;
+  number: string;
+  profilePic?: string;
+}
 
 const SearchScreen: React.FC = () => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const filteredUsers = USERS.filter(user => 
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
-  const renderUserItem = ({ item }: { item: typeof USERS[0] }) => (
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      
+      // 1. Get current user from storage to exclude from list
+      const storedUserData = await AsyncStorage.getItem('userData');
+      if (storedUserData) {
+        setCurrentUser(JSON.parse(storedUserData));
+      }
+
+      // 2. Fetch users from API
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/users`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setUsers(data.data);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to fetch users');
+      }
+    } catch (error) {
+      console.error('Fetch users error:', error);
+      Alert.alert('Connection Error', 'Could not connect to server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredUsers = users.filter(user => {
+    // Exclude current logged in user
+    if (currentUser && user._id === currentUser._id) return false;
+    
+    const query = searchQuery.toLowerCase();
+    return (
+      user.number.toLowerCase().includes(query) ||
+      (user.name && user.name.toLowerCase().includes(query)) ||
+      (user.username && user.username.toLowerCase().includes(query))
+    );
+  });
+
+  const renderUserItem = ({ item }: { item: User }) => (
     <TouchableOpacity style={styles.userItem} activeOpacity={0.7}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
+        <Text style={styles.avatarText}>
+          {item.name ? item.name.charAt(0) : item.number.slice(-1)}
+        </Text>
       </View>
       <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.name}</Text>
-        <Text style={styles.userEmail}>{item.email}</Text>
+        <Text style={styles.userName}>{item.name || `User ${item.number.slice(-4)}`}</Text>
+        <Text style={styles.userEmail}>{item.number}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={Colors.gray} />
+      <Ionicons name="chatbubble-outline" size={20} color={Colors.primary} />
     </TouchableOpacity>
   );
 
@@ -62,7 +107,7 @@ const SearchScreen: React.FC = () => {
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Search by email..."
+            placeholder="Search by phone or name..."
             placeholderTextColor={Colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -78,18 +123,34 @@ const SearchScreen: React.FC = () => {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.sectionTitle}>Available Users</Text>
-        <FlatList
-          data={filteredUsers}
-          keyExtractor={(item) => item.id}
-          renderItem={renderUserItem}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No users found for "{searchQuery}"</Text>
-            </View>
-          }
-        />
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Discover People</Text>
+          {loading && <ActivityIndicator size="small" color={Colors.primary} />}
+        </View>
+
+        {loading && users.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Fetching users...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredUsers}
+            keyExtractor={(item) => item._id}
+            renderItem={renderUserItem}
+            contentContainerStyle={styles.listContent}
+            onRefresh={fetchUsers}
+            refreshing={loading}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="people-outline" size={60} color={Colors.gray} />
+                <Text style={styles.emptyText}>
+                  {searchQuery ? `No users found for "${searchQuery}"` : 'No other users found'}
+                </Text>
+              </View>
+            }
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -131,13 +192,18 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.primary,
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 10,
     textTransform: 'uppercase',
   },
   listContent: {
@@ -155,12 +221,14 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary,
   },
   avatarText: {
-    color: Colors.white,
+    color: Colors.primary,
     fontSize: 20,
     fontWeight: 'bold',
   },
@@ -178,13 +246,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 2,
   },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: Colors.textSecondary,
+    marginTop: 10,
+  },
   emptyContainer: {
     alignItems: 'center',
-    marginTop: 50,
+    marginTop: 100,
   },
   emptyText: {
     color: Colors.textSecondary,
     fontSize: 16,
+    marginTop: 15,
+    textAlign: 'center',
   },
 });
 
