@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -10,47 +10,98 @@ import {
   Image, 
   KeyboardAvoidingView, 
   Platform,
-  StatusBar
+  StatusBar,
+  ActivityIndicator
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import io from 'socket.io-client';
 import { Colors } from '../../theme/colors';
 
 interface Message {
   id: string;
   text: string;
   senderId: string;
+  receiverId?: string;
   timestamp: string;
 }
 
 const ChatScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
-  const { user } = route.params; // Get user details passed from SearchScreen
+  const { user } = route.params; // The other user we are chatting with
   
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', text: 'Hey! How are you?', senderId: 'other', timestamp: '10:00 AM' },
-    { id: '2', text: 'I am good, thanks! How about you?', senderId: 'me', timestamp: '10:01 AM' },
-    { id: '3', text: 'Doing great. Working on the VARTA app!', senderId: 'other', timestamp: '10:02 AM' },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  
+  const socket = useRef<any>(null);
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const initializeChat = async () => {
+      // 1. Get current user
+      const storedUserData = await AsyncStorage.getItem('userData');
+      if (storedUserData) {
+        const parsedUser = JSON.parse(storedUserData);
+        setCurrentUser(parsedUser);
+
+        // 2. Initialize Socket
+        const socketUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace('/api', '');
+        socket.current = io(socketUrl);
+
+        socket.current.emit('setup', parsedUser);
+        
+        socket.current.on('connected', () => {
+          setSocketConnected(true);
+          console.log('📡 Socket Connected');
+        });
+
+        // 3. Join unique chat room
+        const roomID = [parsedUser._id, user._id].sort().join('-');
+        socket.current.emit('join-chat', roomID);
+
+        // 4. Listen for incoming messages
+        socket.current.on('message-received', (newMessage: Message) => {
+          setMessages((prev) => [...prev, newMessage]);
+        });
+      }
+    };
+
+    initializeChat();
+
+    return () => {
+      if (socket.current) {
+        socket.current.disconnect();
+      }
+    };
+  }, [user._id]);
 
   const handleSendMessage = () => {
-    if (message.trim().length === 0) return;
+    if (message.trim().length === 0 || !currentUser) return;
     
     const newMessage: Message = {
       id: Date.now().toString(),
       text: message,
-      senderId: 'me',
+      senderId: currentUser._id,
+      receiverId: user._id,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     
-    setMessages([...messages, newMessage]);
+    // Emit message to backend
+    socket.current.emit('new-message', {
+      ...newMessage,
+      chatId: [currentUser._id, user._id].sort().join('-')
+    });
+
+    setMessages((prev) => [...prev, newMessage]);
     setMessage('');
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isMe = item.senderId === 'me';
+    const isMe = item.senderId === currentUser?._id;
     return (
       <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
@@ -78,7 +129,10 @@ const ChatScreen: React.FC = () => {
         
         <View style={styles.headerInfo}>
           <Text style={styles.userName} numberOfLines={1}>{user.name || `User ${user.number.slice(-4)}`}</Text>
-          <Text style={styles.userStatus}>Online</Text>
+          <View style={styles.statusRow}>
+            <View style={[styles.statusDot, { backgroundColor: socketConnected ? '#4CAF50' : Colors.gray }]} />
+            <Text style={styles.userStatus}>{socketConnected ? 'Online' : 'Connecting...'}</Text>
+          </View>
         </View>
 
         <View style={styles.headerActions}>
@@ -88,19 +142,18 @@ const ChatScreen: React.FC = () => {
           <TouchableOpacity style={styles.actionIcon}>
             <Ionicons name="call" size={20} color={Colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionIcon}>
-            <Ionicons name="ellipsis-vertical" size={20} color={Colors.text} />
-          </TouchableOpacity>
         </View>
       </View>
 
       {/* Message List */}
       <FlatList
+        ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
         contentContainerStyle={styles.messageList}
         showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
 
       {/* Input Area */}
@@ -126,12 +179,6 @@ const ChatScreen: React.FC = () => {
             <TouchableOpacity style={styles.inputIcon}>
               <Ionicons name="attach" size={24} color={Colors.textSecondary} style={{ transform: [{ rotate: '45deg' }] }} />
             </TouchableOpacity>
-            
-            {message.length === 0 && (
-              <TouchableOpacity style={styles.inputIcon}>
-                <Ionicons name="camera" size={24} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            )}
           </View>
           
           <TouchableOpacity 
@@ -184,8 +231,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 5,
+  },
   userStatus: {
-    color: Colors.primary,
+    color: Colors.textSecondary,
     fontSize: 12,
   },
   headerActions: {
