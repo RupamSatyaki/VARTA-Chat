@@ -21,7 +21,7 @@ import { Colors } from '../../theme/colors';
 
 interface Message {
   id: string;
-  text: string;
+  content: string;
   senderId: string;
   receiverId?: string;
   timestamp: string;
@@ -84,7 +84,7 @@ const ChatScreen: React.FC = () => {
     
     const newMessage: Message = {
       id: Date.now().toString(),
-      text: message,
+      content: message,
       senderId: currentUser._id,
       receiverId: user._id,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -105,7 +105,7 @@ const ChatScreen: React.FC = () => {
     return (
       <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-          <Text style={styles.messageText}>{item.text}</Text>
+          <Text style={styles.messageText}>{item.content}</Text>
           <Text style={styles.timestamp}>{item.timestamp}</Text>
         </View>
       </View>
