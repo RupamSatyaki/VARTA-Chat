@@ -81,14 +81,20 @@ const SearchScreen: React.FC = () => {
   });
 
   const handleUserPress = async (user: User) => {
+    console.log("handleUserPress called with user:", user);
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await AsyncStorage.getItem('userToken');
       if (!token) {
         // Handle case where token is not found, maybe navigate to Login
+        console.log("Token not found");
         return;
       }
 
+      console.log("Token found:", token);
+
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+      console.log("API URL:", apiUrl);
+
       const response = await fetch(`${apiUrl}/chats`, {
         method: 'POST',
         headers: {
@@ -98,11 +104,15 @@ const SearchScreen: React.FC = () => {
         body: JSON.stringify({ userId: user._id }),
       });
 
+      console.log("API response:", response);
+
       const chat = await response.json();
 
       if (response.ok) {
+        console.log("Navigating to Chat screen with user:", user, "and chat:", chat);
         navigation.navigate('Chat', { user, chat }); // Pass both user and chat
       } else {
+        console.error("Failed to start chat:", chat);
         Alert.alert('Error', chat.message || 'Failed to start chat');
       }
     } catch (error) {

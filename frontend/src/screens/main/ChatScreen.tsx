@@ -41,6 +41,7 @@ const ChatScreen: React.FC = () => {
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
+    console.log("ChatScreen loaded with user:", user, "and chat:", chat);
     const initializeChat = async () => {
       // 1. Get current user
       const storedUserData = await AsyncStorage.getItem('userData');
@@ -76,7 +77,7 @@ const ChatScreen: React.FC = () => {
         socket.current.disconnect();
       }
     };
-  }, [user._id]);
+  }, [chat._id]);
 
   const handleSendMessage = () => {
     if (message.trim().length === 0 || !currentUser) return;

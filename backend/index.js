@@ -85,9 +85,9 @@ io.on('connection', (socket) => {
 
   // Handle new message
   socket.on('new-message', async (newMessageReceived) => {
-    const { senderId, receiverId, content, type } = newMessageReceived;
+    const { senderId, receiverId, content, type, chatId } = newMessageReceived;
 
-    if (!senderId || !receiverId || !content) {
+    if (!senderId || !receiverId || !content || !chatId) {
       return console.log('❌ Invalid message data received');
     }
 
@@ -98,7 +98,8 @@ io.on('connection', (socket) => {
         receiver: receiverId,
         content: content,
         type: type || 'text',
-        status: 'sent'
+        status: 'sent',
+        chat: chatId,
       });
 
       console.log(`💾 Message saved to DB: ${message._id}`);

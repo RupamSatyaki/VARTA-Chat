@@ -7,12 +7,12 @@ const Message = require('../models/Message');
  */
 const sendMessage = async (req, res) => {
   try {
-    const { senderId, receiverId, content, type } = req.body;
+    const { senderId, receiverId, content, type, chatId } = req.body;
 
-    if (!senderId || !receiverId || !content) {
+    if (!senderId || !receiverId || !content || !chatId) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide senderId, receiverId and content'
+        message: 'Please provide senderId, receiverId, content and chatId'
       });
     }
 
@@ -21,7 +21,8 @@ const sendMessage = async (req, res) => {
       receiver: receiverId,
       content,
       type: type || 'text',
-      status: 'sent'
+      status: 'sent',
+      chat: chatId,
     });
 
     res.status(201).json({
