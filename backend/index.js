@@ -30,6 +30,7 @@ const PORT = process.env.PORT || 5000;
 // 4. Models Initialization
 console.log('⌛ Loading Models...');
 const User = require('./models/User');
+const Message = require('./models/Message');
 console.log('✔ All models successfully loaded');
 
 // 5. Controllers Initialization
@@ -86,14 +87,36 @@ io.on('connection', (socket) => {
   });
 
   // Handle new message
-  socket.on('new-message', (newMessageReceived) => {
-    const chat = newMessageReceived.chatId; // Assume chat object or ID
-    if (!chat) return console.log('❌ Chat not defined');
+  socket.on('new-message', async (newMessageReceived) => {
+    const { senderId, receiverId, content, type } = newMessageReceived;
 
-    // Broadcast to the other user in the room
-    // For now, we'll just broadcast to the specific receiver room
-    socket.in(newMessageReceived.receiverId).emit('message-received', newMessageReceived);
-    console.log(`📩 Message relayed to: ${newMessageReceived.receiverId}`);
+    if (!senderId || !receiverId || !content) {
+      return console.log('❌ Invalid message data received');
+    }
+
+    try {
+      // Save message to database
+      const message = await Message.create({
+        sender: senderId,
+        receiver: receiverId,
+        content: content,
+        type: type || 'text',
+        status: 'sent'
+      });
+
+      console.log(`💾 Message saved to DB: ${message._id}`);
+
+      // Broadcast to the receiver's room
+      socket.in(receiverId).emit('message-received', {
+        ...newMessageReceived,
+        _id: message._id,
+        createdAt: message.createdAt
+      });
+      
+      console.log(`📩 Message relayed to: ${receiverId}`);
+    } catch (error) {
+      console.error('❌ Error saving message:', error.message);
+    }
   });
 
   socket.on('disconnect', () => {
