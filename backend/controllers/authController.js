@@ -1,3 +1,5 @@
+const User = require('../models/User');
+
 /**
  * @desc    Login/Register user with phone number
  * @route   POST /api/auth/login
@@ -14,19 +16,43 @@ const login = async (req, res) => {
       });
     }
 
-    // Temporary: Just log the number to console as requested
-    console.log(`\n[AUTH] Login attempt received for number: ${number}`);
+    console.log(`\n[AUTH] Login/Register attempt for number: ${number}`);
+
+    // 1. Check if user already exists
+    let user = await User.findOne({ number });
+
+    if (user) {
+      console.log(`✔ Existing user found: ${user._id}`);
+      // Update online status
+      user.isOnline = true;
+      user.lastSeen = Date.now();
+      await user.save();
+    } else {
+      console.log(`⌛ Creating new user for number: ${number}`);
+      // 2. Create new user if doesn't exist
+      // Since username is unique, we can generate a temporary one or leave it empty if sparse: true
+      const tempUsername = `user_${number.slice(-4)}${Math.floor(Math.random() * 1000)}`;
+      
+      user = await User.create({
+        number,
+        name: `User ${number.slice(-4)}`, // Default name as last 4 digits
+        username: tempUsername,
+        isOnline: true
+      });
+      console.log(`✔ New user created: ${user._id}`);
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Number received successfully',
-      data: { number }
+      message: user.isNew ? 'User registered successfully' : 'Logged in successfully',
+      data: user
     });
   } catch (error) {
-    console.error(`Error in login controller: ${error.message}`);
+    console.error(`❌ Error in login controller: ${error.message}`);
     res.status(500).json({ 
       success: false, 
-      message: 'Server Error' 
+      message: 'Server Error',
+      error: error.message
     });
   }
 };
