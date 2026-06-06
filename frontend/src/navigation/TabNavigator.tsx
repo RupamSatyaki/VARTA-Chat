@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import HomeScreen from '../screens/main/HomeScreen';
 import Header from '../components/common/Header';
 import { Colors } from '../theme/colors';
@@ -20,6 +21,8 @@ const CallsScreen = () => (
 );
 
 const TabNavigator = () => {
+  const navigation = useNavigation<any>();
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
@@ -27,7 +30,7 @@ const TabNavigator = () => {
       {/* Global Header visible on all tabs */}
       <Header 
         title="VARTA" 
-        onSearchPress={() => console.log('Search')}
+        onSearchPress={() => navigation.navigate('Search')}
         onMenuPress={() => console.log('Menu')}
       />
 
@@ -56,7 +59,6 @@ const TabNavigator = () => {
             } else if (route.name === 'Updates') {
               return <MaterialCommunityIcons name={focused ? 'circle-slice-8' : 'circle-outline'} size={24} color={color} />;
             } else if (route.name === 'Communities') {
-              // Community/Groups style icon
               return <MaterialIcons name={focused ? 'groups' : 'groups-3'} size={26} color={color} />;
             } else if (route.name === 'Calls') {
               return <Ionicons name={focused ? 'call' : 'call-outline'} size={24} color={color} />;
