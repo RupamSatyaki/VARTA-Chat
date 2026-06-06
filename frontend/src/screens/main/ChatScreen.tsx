@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client';
+import Animated, { FadeInUp, Layout } from 'react-native-reanimated';
 import { Colors } from '../../theme/colors';
 
 interface Message {
@@ -154,12 +155,16 @@ const ChatScreen: React.FC = () => {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === currentUser?._id;
     return (
-      <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
+      <Animated.View 
+        entering={FadeInUp.springify().damping(15)}
+        layout={Layout.springify()}
+        style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}
+      >
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
           <Text style={styles.messageText}>{item.content}</Text>
           <Text style={styles.timestamp}>{item.timestamp}</Text>
         </View>
-      </View>
+      </Animated.View>
     );
   };
 
@@ -196,22 +201,28 @@ const ChatScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Message List */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messageList}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
-
-      {/* Input Area */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
+        <View style={styles.chatContainer}>
+          {/* Message List */}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            style={styles.flatList}
+            contentContainerStyle={styles.messageList}
+            showsVerticalScrollIndicator={true}
+            indicatorStyle="white"
+            persistentScrollbar={true}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          />
+        </View>
+
+        {/* Input Area */}
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
             <TouchableOpacity style={styles.inputIcon}>
@@ -379,6 +390,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
+  keyboardView: {
+    flex: 1,
+  },
+  chatContainer: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  flatList: {
+    flex: 1,
+  },
+  // Custom scrollbar for Web
+  ...(Platform.OS === 'web' ? {
+    messageList: {
+      padding: 15,
+      paddingBottom: 20,
+      scrollbarWidth: 'thin',
+      scrollbarColor: `${Colors.primary} transparent`,
+    }
+  } : {})
 });
 
 export default ChatScreen;
