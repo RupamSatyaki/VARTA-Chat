@@ -54,16 +54,9 @@ console.log('   - Route initialized: /api/auth (Authentication)');
 app.use('/api/users', require('./routes/userRoutes'));
 console.log('   - Route initialized: /api/users (User Profile)');
 
-// Placeholder for other route registrations
-const otherRoutes = [
-  { path: '/api/chats', name: 'Chat Management' },
-  { path: '/api/messages', name: 'Messaging System' },
-  { path: '/api/communities', name: 'Communities/Groups' }
-];
-
-otherRoutes.forEach(route => {
-  console.log(`   - Route initialized: ${route.path} (${route.name})`);
-});
+// Register Message Routes
+app.use('/api/messages', require('./routes/messageRoutes'));
+console.log('   - Route initialized: /api/messages (Messaging System)');
 
 console.log('✔ All API routes successfully initialized');
 
