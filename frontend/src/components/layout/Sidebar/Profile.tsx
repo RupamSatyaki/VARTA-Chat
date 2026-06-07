@@ -9,14 +9,22 @@ interface ProfileProps {
 
 const Profile: React.FC<ProfileProps> = ({ user }) => {
   const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const [imgError, setImgError] = React.useState(false);
   const isOnline = user?._id ? onlineUsers.has(user._id) : false;
+
+  const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+  const profilePicUri = (!user?.profilePic || imgError) ? DEFAULT_AVATAR : user.profilePic;
 
   return (
     <View style={styles.container}>
       <View style={styles.avatarWrapper}>
         <Image 
-          source={{ uri: user?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+          source={{ uri: profilePicUri }} 
           style={styles.avatar} 
+          onError={() => {
+            console.log('Failed to load profile pic, falling back to default');
+            setImgError(true);
+          }}
         />
         {isOnline && <View style={styles.onlineBadge} />}
       </View>
