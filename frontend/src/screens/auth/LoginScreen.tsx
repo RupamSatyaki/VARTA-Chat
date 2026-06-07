@@ -9,26 +9,17 @@ import {
   ScrollView,
   Alert 
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import CustomInput from '../../components/common/CustomInput';
 import CustomButton from '../../components/common/CustomButton';
 import { Colors } from '../../theme/colors';
 
-type RootStackParamList = {
-  Login: undefined;
-  Home: undefined;
-};
-
-type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
-
 const LoginScreen: React.FC = () => {
   const [number, setNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigation = useNavigation<LoginScreenNavigationProp>();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
   const handleLogin = async () => {
     if (!number) {
@@ -57,12 +48,9 @@ const LoginScreen: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Store token and user data
-        await AsyncStorage.setItem('userToken', data.token);
-        await AsyncStorage.setItem('userData', JSON.stringify(data.data));
-        
+        // Use Zustand to store auth data
+        await setAuth(data.token, data.data);
         console.log('Login successful, token stored');
-        navigation.navigate('Home');
       } else {
         setError(data.message || 'Login failed');
         Alert.alert('Error', data.message || 'Login failed');

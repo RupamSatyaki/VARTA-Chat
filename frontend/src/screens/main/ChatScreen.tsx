@@ -15,8 +15,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSocket } from '../../context/SocketContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useChatStore } from '../../store/useChatStore';
 import { Colors } from '../../theme/colors';
 
 interface Message {
@@ -33,22 +34,23 @@ const ChatScreen: React.FC = () => {
   const { user, chat } = route.params;
   
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   
   const { socket, isConnected } = useSocket();
+  const { userData, userToken } = useAuthStore();
+  const { messages, setMessages, addMessage } = useChatStore();
+  
+  const chatMessages = messages[chat._id] || [];
   const flatListRef = useRef<FlatList>(null);
 
-  const fetchMessages = async (userId: string) => {
+  const fetchMessages = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
       
-      const response = await fetch(`${apiUrl}/messages/${userId}/${user._id}`, {
+      const response = await fetch(`${apiUrl}/messages/${userData?._id}/${user._id}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${userToken}`,
         },
       });
 
@@ -62,7 +64,7 @@ const ChatScreen: React.FC = () => {
           receiverId: m.receiver,
           timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         }));
-        setMessages(formattedMessages);
+        setMessages(chat._id, formattedMessages);
       }
     } catch (error) {
       console.error('Fetch messages error:', error);
@@ -72,16 +74,7 @@ const ChatScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    const initializeChat = async () => {
-      const storedUserData = await AsyncStorage.getItem('userData');
-      if (storedUserData) {
-        const parsedUser = JSON.parse(storedUserData);
-        setCurrentUser(parsedUser);
-        await fetchMessages(parsedUser._id);
-      }
-    };
-
-    initializeChat();
+    fetchMessages();
 
     if (socket) {
       socket.emit('join-chat', chat._id);
@@ -95,7 +88,7 @@ const ChatScreen: React.FC = () => {
             receiverId: newMessage.receiverId,
             timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
-          setMessages((prev) => [...prev, formattedMsg]);
+          addMessage(chat._id, formattedMsg);
         }
       });
     }
@@ -108,21 +101,21 @@ const ChatScreen: React.FC = () => {
   }, [chat._id, socket]);
 
   const handleSendMessage = () => {
-    if (message.trim().length === 0 || !currentUser || !socket) return;
+    if (message.trim().length === 0 || !userData || !socket) return;
     const newMessage: Message = {
       id: Date.now().toString(),
       content: message,
-      senderId: currentUser._id,
+      senderId: userData._id,
       receiverId: user._id,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     socket.emit('new-message', { ...newMessage, chatId: chat._id });
-    setMessages((prev) => [...prev, newMessage]);
+    addMessage(chat._id, newMessage);
     setMessage('');
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isMe = item.senderId === currentUser?._id;
+    const isMe = item.senderId === userData?._id;
     return (
       <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
@@ -159,17 +152,17 @@ const ChatScreen: React.FC = () => {
         {loading && <ActivityIndicator style={styles.loader} color={Colors.primary} />}
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={chatMessages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
           contentContainerStyle={styles.listContent}
           onContentSizeChange={() => {
-            if (messages.length > 0) {
+            if (chatMessages.length > 0) {
               flatListRef.current?.scrollToEnd({ animated: true });
             }
           }}
           onLayout={() => {
-            if (messages.length > 0) {
+            if (chatMessages.length > 0) {
               flatListRef.current?.scrollToEnd({ animated: false });
             }
           }}

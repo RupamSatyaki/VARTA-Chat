@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuthStore } from '../store/useAuthStore';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SearchScreen from '../screens/main/SearchScreen';
 import ChatScreen from '../screens/main/ChatScreen';
@@ -12,23 +12,10 @@ import { Colors } from '../theme/colors';
 const Stack = createStackNavigator();
 
 const AppNavigator: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [userToken, setUserToken] = useState<string | null>(null);
+  const { userToken, isLoading, initializeAuth } = useAuthStore();
 
   useEffect(() => {
-    // Check for stored token on app start
-    const bootstrapAsync = async () => {
-      let token;
-      try {
-        token = await AsyncStorage.getItem('userToken');
-      } catch (e) {
-        console.error('Failed to load token', e);
-      }
-      setUserToken(token);
-      setIsLoading(false);
-    };
-
-    bootstrapAsync();
+    initializeAuth();
   }, []);
 
   if (isLoading) {
@@ -47,17 +34,22 @@ const AppNavigator: React.FC = () => {
           headerShown: false,
         }}
       >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Home" component={TabNavigator} />
-        <Stack.Screen 
-          name="Search" 
-          component={SearchScreen}
-          options={{
-            presentation: 'transparentModal',
-            animationEnabled: true,
-          }}
-        />
-        <Stack.Screen name="Chat" component={ChatScreen} />
+        {!userToken ? (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        ) : (
+          <>
+            <Stack.Screen name="Home" component={TabNavigator} />
+            <Stack.Screen 
+              name="Search" 
+              component={SearchScreen}
+              options={{
+                presentation: 'transparentModal',
+                animationEnabled: true,
+              }}
+            />
+            <Stack.Screen name="Chat" component={ChatScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
