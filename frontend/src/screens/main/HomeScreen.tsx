@@ -126,12 +126,20 @@ const HomeScreen: React.FC = () => {
         }));
       });
 
-      socket.on('messages-seen', ({ chatId }: any) => {
+      socket.on('messages-seen', ({ chatId, receiverId }: any) => {
         setChats(prev => prev.map(chat => {
-          if (chat._id === chatId && chat.latestMessage && chat.latestMessage.sender._id === userData?._id) {
+          if (chat._id === chatId) {
+            const isMeReceiver = receiverId === userData?._id;
+            const isMeSender = chat.latestMessage && chat.latestMessage.sender._id === userData?._id;
+
             return {
               ...chat,
-              latestMessage: { ...chat.latestMessage, status: 'seen' }
+              // If I am the receiver, unread count is now 0
+              unreadCount: isMeReceiver ? 0 : chat.unreadCount,
+              // If I am the sender, update my last message status to seen
+              latestMessage: (isMeSender && chat.latestMessage) 
+                ? { ...chat.latestMessage, status: 'seen' } 
+                : chat.latestMessage
             };
           }
           return chat;

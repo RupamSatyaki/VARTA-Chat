@@ -92,10 +92,18 @@ module.exports = (io, socket) => {
         { status: 'seen', seenAt: Date.now() }
       );
 
-      // Notify the sender that their messages were read
+      // 1. Notify the sender that their messages were read (to update ticks to blue)
       socket.in(senderId).emit('messages-seen', {
         chatId,
-        receiverId // The person who read the messages
+        senderId,
+        receiverId
+      });
+
+      // 2. Notify the receiver that they read the messages (to sync unread counts across devices)
+      socket.in(receiverId).emit('messages-seen', {
+        chatId,
+        senderId,
+        receiverId
       });
       
       console.log(`✔ Messages in chat ${chatId} marked as seen by ${receiverId}`);
