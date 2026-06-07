@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -28,6 +28,7 @@ interface Message {
   senderId: string;
   receiverId?: string;
   timestamp: string;
+  status?: 'sent' | 'delivered' | 'seen';
 }
 
 const ChatScreen: React.FC = () => {
@@ -45,10 +46,11 @@ const ChatScreen: React.FC = () => {
   const chatMessages = messages[chat._id] || [];
   const flatListRef = useRef<FlatList>(null);
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
+    if (!userData?._id || !user?._id) return;
     try {
       setLoading(true);
-      const response = await apiClient.get(`/messages/${userData?._id}/${user._id}`);
+      const response = await apiClient.get(`/messages/${userData._id}/${user._id}`);
       const data = response.data;
 
       if (data.success) {
@@ -66,8 +68,8 @@ const ChatScreen: React.FC = () => {
         if (socket && userData) {
           socket.emit('message-seen', {
             chatId: chat._id,
-            senderId: user._id, // The person who sent the messages we are reading
-            receiverId: userData._id // Us
+            senderId: user._id, 
+            receiverId: userData._id
           });
         }
       }
@@ -76,7 +78,7 @@ const ChatScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [chat._id, user._id, userData?._id, socket, setMessages]);
 
   useEffect(() => {
     fetchMessages();
@@ -91,13 +93,11 @@ const ChatScreen: React.FC = () => {
             content: newMessage.content,
             senderId: newMessage.senderId,
             receiverId: newMessage.receiverId,
-            status: 'seen', // Since we are in the chat, it's immediately seen
+            status: 'seen', 
             timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
           addMessage(chat._id, formattedMsg);
 
-          // Emit seen confirmation since we are in the active chat
-          // (delivered confirmation is now handled globally in SocketContext)
           socket.emit('message-seen', {
             chatId: chat._id,
             senderId: newMessage.senderId,
@@ -114,7 +114,7 @@ const ChatScreen: React.FC = () => {
 
       socket.on('messages-seen', ({ chatId, receiverId }: any) => {
         if (chatId === chat._id) {
-          markMessagesAsSeen(chatId, userData?._id || ''); // Mark OUR sent messages as seen
+          markMessagesAsSeen(chatId, userData?._id || '');
         }
       });
     }
@@ -126,7 +126,7 @@ const ChatScreen: React.FC = () => {
         socket.off('messages-seen');
       }
     };
-  }, [chat._id, socket]);
+  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, markMessagesAsSeen]);
 
   const handleSendMessage = () => {
     if (message.trim().length === 0 || !userData || !socket) return;
@@ -151,13 +151,13 @@ const ChatScreen: React.FC = () => {
       
       switch (item.status) {
         case 'seen':
-          return <Ionicons name="checkmark-done" size={16} color="#34B7F1" />;
+          return <Ionicons name="checkmark-done" size={16} color="#34B7F1" style={styles.tickIcon} />;
         case 'delivered':
-          return <Ionicons name="checkmark-done" size={16} color="rgba(255,255,255,0.6)" />;
+          return <Ionicons name="checkmark-done" size={16} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
         case 'sent':
-          return <Ionicons name="checkmark" size={16} color="rgba(255,255,255,0.6)" />;
+          return <Ionicons name="checkmark" size={16} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
         default:
-          return <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.6)" />;
+          return <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
       }
     };
 
@@ -178,7 +178,7 @@ const ChatScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* 1. Header (Fixed) */}
+      {/* 1. Header */}
       <View style={styles.header}>
         <SafeAreaView />
         <View style={styles.headerContent}>
@@ -195,25 +195,17 @@ const ChatScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* 2. Chat Area (Scrollable) */}
+      {/* 2. Chat Area */}
       <View style={styles.chatArea}>
-        {loading && <ActivityIndicator style={styles.loader} color={Colors.primary} />}
+        {loading && chatMessages.length === 0 && <ActivityIndicator style={styles.loader} color={Colors.primary} />}
         <FlatList
           ref={flatListRef}
           data={chatMessages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
           contentContainerStyle={styles.listContent}
-          onContentSizeChange={() => {
-            if (chatMessages.length > 0) {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }
-          }}
-          onLayout={() => {
-            if (chatMessages.length > 0) {
-              flatListRef.current?.scrollToEnd({ animated: false });
-            }
-          }}
+          onContentSizeChange={() => chatMessages.length > 0 && flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => chatMessages.length > 0 && flatListRef.current?.scrollToEnd({ animated: false })}
           showsVerticalScrollIndicator={true}
           style={{ flex: 1 }}
           removeClippedSubviews={false}
@@ -221,7 +213,8 @@ const ChatScreen: React.FC = () => {
           overScrollMode="always"
         />
       </View>
-      {/* 3. Footer Area (Pinned at bottom using KeyboardAvoidingView) */}
+
+      {/* 3. Footer Area */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
@@ -256,7 +249,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    // Ensure container doesn't grow on web
     height: Platform.OS === 'web' ? '100vh' : '100%',
     maxHeight: Platform.OS === 'web' ? '100vh' : '100%',
     overflow: 'hidden',
@@ -289,16 +281,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   chatArea: {
-    flex: 1, // Take all available space
+    flex: 1,
     backgroundColor: Colors.background,
     overflow: 'hidden',
   },
-  flatList: {
-    flex: 1,
-  },
   listContent: {
     padding: 15,
-    paddingBottom: 20, // Space for the last message
+    paddingBottom: 20,
     flexGrow: 1,
   },
   messageWrapper: {
@@ -339,9 +328,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginRight: 4,
   },
+  tickIcon: {
+    marginLeft: 2,
+  },
   footerWrapper: {
     width: '100%',
-    zIndex: 200, // Keep in front
+    zIndex: 200,
   },
   footerContainer: {
     backgroundColor: Colors.surface,
