@@ -6,7 +6,6 @@ import {
   FlatList, 
   TouchableOpacity, 
   ActivityIndicator, 
-  Alert,
   SafeAreaView,
   StatusBar,
   Image
@@ -16,38 +15,13 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSocket } from '../../context/SocketContext';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useChatStore } from '../../store/useChatStore';
 import apiClient from '../../api/apiClient';
 import { Colors } from '../../theme/colors';
 
-interface User {
-  _id: string;
-  name?: string;
-  number: string;
-  profilePic?: string;
-}
-
-interface Chat {
-  _id: string;
-  chatName?: string;
-  isGroupChat: boolean;
-  users: User[];
-  unreadCount?: number;
-  latestMessage?: {
-    _id: string;
-    content: string;
-    status: 'sent' | 'delivered' | 'seen';
-    createdAt: string;
-    sender: {
-      _id: string;
-      name?: string;
-      number?: string;
-    };
-  };
-}
-
 type RootStackParamList = {
   Home: undefined;
-  Chat: { user: User; chat: Chat };
+  Chat: { user: any; chat: any };
   Login: undefined;
   Search: undefined;
 };
@@ -55,13 +29,18 @@ type RootStackParamList = {
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
-  const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   
   const { socket } = useSocket();
   const { userData, logout } = useAuthStore();
+  const { 
+    chats, 
+    setChats, 
+    updateChatFromMessage, 
+    updateChatStatus, 
+    syncChatSeen 
+  } = useChatStore();
 
-  // Helper to check if a user ID or object matches the current user
   const isMe = useCallback((sender: any) => {
     if (!sender || !userData) return false;
     const senderId = typeof sender === 'object' ? sender._id : sender;
@@ -80,7 +59,7 @@ const HomeScreen: React.FC = () => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, []);
+  }, [setChats]);
 
   useEffect(() => {
     if (isFocused && userData) {
@@ -91,96 +70,29 @@ const HomeScreen: React.FC = () => {
   useEffect(() => {
     if (socket && userData) {
       const handleMessageReceived = (newMessage: any) => {
-        setChats((prevChats) => {
-          const chatIndex = prevChats.findIndex(c => c._id === newMessage.chatId);
-          
-          if (chatIndex === -1) {
-            fetchChats(false);
-            return prevChats;
-          }
-
-          const updatedChats = [...prevChats];
-          const targetChat = { ...updatedChats[chatIndex] };
-
-          targetChat.latestMessage = {
-            _id: newMessage._id,
-            content: newMessage.content,
-            status: newMessage.status || 'sent',
-            createdAt: new Date().toISOString(),
-            sender: {
-              _id: newMessage.senderId,
-              name: newMessage.senderName,
-              number: newMessage.senderNumber
-            }
-          };
-
-          if (!isMe(newMessage.senderId)) {
-            targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
-          }
-
-          updatedChats.splice(chatIndex, 1);
-          return [targetChat, ...updatedChats];
-        });
+        const chatExists = chats.some(c => c._id === newMessage.chatId);
+        if (!chatExists) {
+          fetchChats(false);
+        } else {
+          updateChatFromMessage(newMessage, isMe(newMessage.senderId));
+        }
       };
 
       const handleMessageSent = ({ message: savedMsg }: any) => {
-        setChats((prevChats) => {
-          const chatIndex = prevChats.findIndex(c => c._id === savedMsg.chat);
-          if (chatIndex === -1) {
-            fetchChats(false);
-            return prevChats;
-          }
-
-          const updatedChats = [...prevChats];
-          const targetChat = { ...updatedChats[chatIndex] };
-
-          targetChat.latestMessage = {
-            _id: savedMsg._id,
-            content: savedMsg.content,
-            status: savedMsg.status,
-            createdAt: savedMsg.createdAt,
-            sender: {
-              _id: savedMsg.sender,
-            }
-          };
-
-          updatedChats.splice(chatIndex, 1);
-          return [targetChat, ...updatedChats];
-        });
+        const chatExists = chats.some(c => c._id === savedMsg.chat);
+        if (!chatExists) {
+          fetchChats(false);
+        } else {
+          updateChatFromMessage(savedMsg, true);
+        }
       };
 
       const handleStatusUpdated = ({ messageId, chatId, status }: any) => {
-        setChats(prev => prev.map(chat => {
-          if (chat._id === chatId && chat.latestMessage && chat.latestMessage._id === messageId) {
-            return {
-              ...chat,
-              latestMessage: { 
-                ...chat.latestMessage, 
-                status: status as 'sent' | 'delivered' | 'seen' 
-              }
-            };
-          }
-          return chat;
-        }));
+        updateChatStatus(chatId, messageId, status);
       };
 
       const handleMessagesSeen = ({ chatId, receiverId }: any) => {
-        setChats(prev => prev.map(chat => {
-          if (chat._id === chatId) {
-            const isMeReceiver = receiverId === userData?._id;
-            const latestMsg = chat.latestMessage;
-            const isLatestFromMe = latestMsg && isMe(latestMsg.sender);
-
-            return {
-              ...chat,
-              unreadCount: isMeReceiver ? 0 : chat.unreadCount,
-              latestMessage: (isLatestFromMe && latestMsg) 
-                ? { ...latestMsg, status: 'seen' as const } 
-                : latestMsg
-            };
-          }
-          return chat;
-        }));
+        syncChatSeen(chatId, receiverId, userData._id);
       };
 
       socket.on('message-received', handleMessageReceived);
@@ -195,7 +107,7 @@ const HomeScreen: React.FC = () => {
         socket.off('messages-seen', handleMessagesSeen);
       };
     }
-  }, [socket, userData, fetchChats, isMe]);
+  }, [socket, userData, chats, fetchChats, updateChatFromMessage, updateChatStatus, syncChatSeen, isMe]);
 
   const formatTime = (dateString: string) => {
     if (!dateString) return '';
@@ -224,30 +136,28 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  const getChatDisplayName = (chat: Chat) => {
+  const getChatDisplayName = (chat: any) => {
     if (chat.isGroupChat) return chat.chatName;
-    const otherUser = chat.users.find(u => u._id !== userData?._id);
+    const otherUser = chat.users.find((u: any) => u._id !== userData?._id);
     return otherUser?.name || otherUser?.number || 'Unknown';
   };
 
-  const handleChatPress = (chat: Chat) => {
-    const otherUser = chat.users.find(u => u._id !== userData?._id);
+  const handleChatPress = (chat: any) => {
+    const otherUser = chat.users.find((u: any) => u._id !== userData?._id);
     if (otherUser) {
-      setChats(prev => prev.map(c => c._id === chat._id ? { ...c, unreadCount: 0 } : c));
+      // Optmistic reset unread count
+      syncChatSeen(chat._id, userData?._id || '', userData?._id || '');
       navigation.navigate('Chat', { user: otherUser, chat });
     }
   };
 
-  const renderChatItem = ({ item }: { item: Chat }) => {
+  const renderChatItem = ({ item }: { item: any }) => {
     const latestMsg = item.latestMessage;
-    const isLatestMessageFromMe = latestMsg && (
-      (typeof latestMsg.sender === 'string' && latestMsg.sender === userData?._id) ||
-      (typeof latestMsg.sender === 'object' && latestMsg.sender._id === userData?._id)
-    );
+    const isLatestFromMe = latestMsg && isMe(latestMsg.sender);
     const hasUnread = (item.unreadCount || 0) > 0;
 
     const renderStatusIcon = () => {
-      if (!isLatestMessageFromMe || !latestMsg) return null;
+      if (!isLatestFromMe || !latestMsg) return null;
       switch (latestMsg.status) {
         case 'seen': return <Ionicons name="checkmark-done" size={16} color="#34B7F1" style={{ marginRight: 4 }} />;
         case 'delivered': return <Ionicons name="checkmark-done" size={16} color={Colors.textSecondary} style={{ marginRight: 4 }} />;
@@ -259,7 +169,7 @@ const HomeScreen: React.FC = () => {
     return (
       <TouchableOpacity style={styles.chatItem} activeOpacity={0.7} onPress={() => handleChatPress(item)}>
         <Image 
-          source={{ uri: item.users.find(u => u._id !== userData?._id)?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+          source={{ uri: item.users.find((u: any) => u._id !== userData?._id)?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
           style={styles.avatar} 
         />
         <View style={styles.chatInfo}>
