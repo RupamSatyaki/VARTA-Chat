@@ -77,16 +77,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
       {/* Drawer Content */}
       <Animated.View style={[styles.drawer, animatedStyle]}>
-        <Header 
-          onClose={onClose} 
-          onMorePress={() => setIsDropdownVisible(!isDropdownVisible)}
-          onEditPress={() => console.log('Edit Profile')}
-        />
-        
-        <Dropdown 
-          isVisible={isDropdownVisible} 
-          onLogout={handleLogout} 
-        />
+        <View style={{ zIndex: 10 }}>
+          <Header 
+            onClose={onClose} 
+            onMorePress={() => setIsDropdownVisible(!isDropdownVisible)}
+            onEditPress={() => console.log('Edit Profile')}
+          />
+          
+          <Dropdown 
+            isVisible={isDropdownVisible} 
+            onLogout={handleLogout} 
+          />
+        </View>
 
         <Profile user={userData} />
 

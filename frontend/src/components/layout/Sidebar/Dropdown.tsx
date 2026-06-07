@@ -35,7 +35,7 @@ const Dropdown: React.FC<DropdownProps> = ({ isVisible, onLogout }) => {
 const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 90 : 60,
+    top: Platform.OS === 'ios' ? 100 : 70,
     right: 15,
     zIndex: 2000,
   },

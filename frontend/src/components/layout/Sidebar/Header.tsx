@@ -13,17 +13,29 @@ const Header: React.FC<HeaderProps> = ({ onClose, onEditPress, onMorePress }) =>
   return (
     <View style={styles.container}>
       <View style={styles.leftSection}>
-        <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
+        <TouchableOpacity 
+          onPress={onClose} 
+          style={styles.iconBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
       </View>
 
       <View style={styles.rightSection}>
-        <TouchableOpacity onPress={onEditPress} style={styles.iconBtn}>
+        <TouchableOpacity 
+          onPress={onEditPress} 
+          style={styles.iconBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
+        >
           <Ionicons name="pencil-outline" size={22} color={Colors.text} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onMorePress} style={styles.iconBtn}>
+        <TouchableOpacity 
+          onPress={onMorePress} 
+          style={styles.iconBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons name="ellipsis-vertical" size={22} color={Colors.text} />
         </TouchableOpacity>
       </View>
@@ -40,6 +52,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingBottom: 15,
     backgroundColor: Colors.surface,
+    zIndex: 10,
   },
   leftSection: {
     flexDirection: 'row',
