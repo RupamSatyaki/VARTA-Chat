@@ -10,16 +10,21 @@ interface HeaderProps {
   onMenuPress?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, onSearchPress, onMenuPress }) => {
+const Header: React.FC<HeaderProps> = ({ onSearchPress, onMenuPress }) => {
   return (
     <View style={styles.container}>
-      <Animated.View 
-        entering={FadeInLeft.duration(800).springify()} 
-        layout={Layout.springify()}
-        style={styles.leftSection}
-      >
-        <Text style={styles.title}>{title}</Text>
-      </Animated.View>
+      <View style={styles.leftSection}>
+        <Pressable 
+          onPress={onMenuPress}
+          style={({ pressed }) => [
+            styles.iconButton,
+            pressed && styles.iconButtonActive,
+            Platform.OS === 'web' && { cursor: 'pointer' }
+          ]}
+        >
+          <Ionicons name="menu" size={28} color={Colors.text} />
+        </Pressable>
+      </View>
 
       <View style={styles.rightSection}>
         <Pressable 
@@ -27,23 +32,10 @@ const Header: React.FC<HeaderProps> = ({ title, onSearchPress, onMenuPress }) =>
           style={({ pressed }) => [
             styles.iconButton,
             pressed && styles.iconButtonActive,
-            // @ts-ignore - hover state for web
             Platform.OS === 'web' && { cursor: 'pointer' }
           ]}
         >
           <Ionicons name="search" size={24} color={Colors.text} />
-        </Pressable>
-
-        <Pressable 
-          onPress={onMenuPress}
-          style={({ pressed }) => [
-            styles.iconButton,
-            pressed && styles.iconButtonActive,
-            // @ts-ignore - hover state for web
-            Platform.OS === 'web' && { cursor: 'pointer' }
-          ]}
-        >
-          <Ionicons name="ellipsis-vertical" size={24} color={Colors.text} />
         </Pressable>
       </View>
     </View>
