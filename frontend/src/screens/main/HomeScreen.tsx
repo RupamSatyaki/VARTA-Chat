@@ -83,7 +83,6 @@ const HomeScreen: React.FC = () => {
 
   useEffect(() => {
     if (socket && userData) {
-      // 1. Handle received messages (from others)
       const handleMessageReceived = (newMessage: any) => {
         setChats((prevChats) => {
           const chatIndex = prevChats.findIndex(c => c._id === newMessage.chatId);
@@ -108,7 +107,6 @@ const HomeScreen: React.FC = () => {
             }
           };
 
-          // Only increment unread if we are not the sender
           if (newMessage.senderId !== userData._id) {
             targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
           }
@@ -118,7 +116,6 @@ const HomeScreen: React.FC = () => {
         });
       };
 
-      // 2. Handle messages sent (by us on this or other device)
       const handleMessageSent = ({ message: savedMsg }: any) => {
         setChats((prevChats) => {
           const chatIndex = prevChats.findIndex(c => c._id === savedMsg.chat);
@@ -145,32 +142,37 @@ const HomeScreen: React.FC = () => {
         });
       };
 
-      // 3. Handle delivery status updates
       const handleStatusUpdated = ({ messageId, chatId, status }: any) => {
         setChats(prev => prev.map(chat => {
-          if (chat._id === chatId && chat.latestMessage?._id === messageId) {
+          if (chat._id === chatId && chat.latestMessage && chat.latestMessage._id === messageId) {
             return {
               ...chat,
-              latestMessage: { ...chat.latestMessage, status }
+              latestMessage: { 
+                ...chat.latestMessage, 
+                status: status as 'sent' | 'delivered' | 'seen' 
+              }
             };
           }
           return chat;
         }));
       };
 
-      // 4. Handle seen status updates
       const handleMessagesSeen = ({ chatId, receiverId }: any) => {
         setChats(prev => prev.map(chat => {
           if (chat._id === chatId) {
             const isMeReceiver = receiverId === userData?._id;
-            const isMeSender = chat.latestMessage && chat.latestMessage.sender._id === userData?._id;
+            const latestMsg = chat.latestMessage;
+            const isMeSender = latestMsg && (
+              (typeof latestMsg.sender === 'string' && latestMsg.sender === userData?._id) ||
+              (typeof latestMsg.sender === 'object' && latestMsg.sender._id === userData?._id)
+            );
 
             return {
               ...chat,
               unreadCount: isMeReceiver ? 0 : chat.unreadCount,
-              latestMessage: (isMeSender && chat.latestMessage) 
-                ? { ...chat.latestMessage, status: 'seen' } 
-                : chat.latestMessage
+              latestMessage: (isMeSender && latestMsg) 
+                ? { ...latestMsg, status: 'seen' as const } 
+                : latestMsg
             };
           }
           return chat;
@@ -233,12 +235,16 @@ const HomeScreen: React.FC = () => {
   };
 
   const renderChatItem = ({ item }: { item: Chat }) => {
-    const isLatestMessageFromMe = item.latestMessage?.sender._id === userData?._id;
+    const latestMsg = item.latestMessage;
+    const isLatestMessageFromMe = latestMsg && (
+      (typeof latestMsg.sender === 'string' && latestMsg.sender === userData?._id) ||
+      (typeof latestMsg.sender === 'object' && latestMsg.sender._id === userData?._id)
+    );
     const hasUnread = (item.unreadCount || 0) > 0;
 
     const renderStatusIcon = () => {
-      if (!isLatestMessageFromMe || !item.latestMessage) return null;
-      switch (item.latestMessage.status) {
+      if (!isLatestMessageFromMe || !latestMsg) return null;
+      switch (latestMsg.status) {
         case 'seen': return <Ionicons name="checkmark-done" size={16} color="#34B7F1" style={{ marginRight: 4 }} />;
         case 'delivered': return <Ionicons name="checkmark-done" size={16} color={Colors.textSecondary} style={{ marginRight: 4 }} />;
         case 'sent': return <Ionicons name="checkmark" size={16} color={Colors.textSecondary} style={{ marginRight: 4 }} />;
@@ -256,14 +262,14 @@ const HomeScreen: React.FC = () => {
           <View style={styles.chatHeader}>
             <Text style={styles.chatName} numberOfLines={1}>{getChatDisplayName(item)}</Text>
             <Text style={[styles.time, hasUnread && styles.unreadTime]}>
-              {item.latestMessage ? formatTime(item.latestMessage.createdAt) : ''}
+              {latestMsg ? formatTime(latestMsg.createdAt) : ''}
             </Text>
           </View>
           <View style={styles.chatFooter}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               {renderStatusIcon()}
               <Text style={[styles.lastMessage, hasUnread && styles.unreadMessage]} numberOfLines={1}>
-                {item.latestMessage ? item.latestMessage.content : 'No messages yet'}
+                {latestMsg ? latestMsg.content : 'No messages yet'}
               </Text>
             </View>
             {hasUnread && <View style={styles.unreadBadge}><Text style={styles.unreadText}>{item.unreadCount}</Text></View>}
