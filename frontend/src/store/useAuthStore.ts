@@ -15,6 +15,7 @@ interface AuthState {
   userData: UserData | null;
   isLoading: boolean;
   setAuth: (token: string, data: UserData) => Promise<void>;
+  updateUser: (data: Partial<UserData>) => Promise<void>;
   logout: () => Promise<void>;
   initializeAuth: () => Promise<void>;
 }
@@ -31,6 +32,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ userToken: token, userData: data });
     } catch (error) {
       console.error('Error saving auth data:', error);
+    }
+  },
+
+  updateUser: async (newData) => {
+    try {
+      const currentData = useAuthStore.getState().userData;
+      if (!currentData) return;
+
+      const updatedData = { ...currentData, ...newData };
+      await AsyncStorage.setItem('userData', JSON.stringify(updatedData));
+      set({ userData: updatedData });
+      console.log('🔄 User data synchronized in store and storage');
+    } catch (error) {
+      console.error('Error updating user data:', error);
     }
   },
 

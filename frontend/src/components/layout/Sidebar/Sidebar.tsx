@@ -24,6 +24,7 @@ import UserInfo from './UserInfo';
 import SettingsList from './SettingsList';
 import MenuItem from './MenuItem';
 import Dropdown from './Dropdown';
+import ProfileEditModal from './ProfileEditModal';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -35,6 +36,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
   const { userData, logout } = useAuthStore();
@@ -84,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <Header 
             onClose={onClose} 
             onMorePress={() => setIsDropdownVisible(!isDropdownVisible)}
-            onEditPress={() => console.log('Edit Profile')}
+            onEditPress={() => setIsEditModalVisible(true)}
           />
           
           <Dropdown 
@@ -105,6 +107,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </View>
         </ScrollView>
       </Animated.View>
+
+      {/* Profile Edit Modal */}
+      <ProfileEditModal 
+        isVisible={isEditModalVisible} 
+        onClose={() => setIsEditModalVisible(false)} 
+      />
     </>
   );
 };
