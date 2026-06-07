@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import io, { Socket } from 'socket.io-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -18,61 +18,66 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const { userData } = useAuthStore();
 
   useEffect(() => {
-    const initializeSocket = async () => {
-      const storedUserData = await AsyncStorage.getItem('userData');
-      if (!storedUserData) return;
-
-      const parsedUser = JSON.parse(storedUserData);
-      const socketUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace('/api', '');
-
-      if (!socketRef.current) {
-        const newSocket = io(socketUrl, {
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-        });
-
-        socketRef.current = newSocket;
-        setSocket(newSocket);
-
-        newSocket.on('connect', () => {
-          console.log('📡 Socket connected:', newSocket.id);
-          setIsConnected(true);
-          newSocket.emit('setup', parsedUser);
-        });
-
-        // Global delivery confirmation listener
-        newSocket.on('message-received', (newMessage: any) => {
-          console.log('📩 Message received globally, sending delivery confirmation');
-          newSocket.emit('message-delivered', {
-            messageId: newMessage._id,
-            senderId: newMessage.senderId
-          });
-        });
-
-        newSocket.on('disconnect', () => {
-          console.log('📡 Socket disconnected');
-          setIsConnected(false);
-        });
-
-        newSocket.on('connect_error', (error) => {
-          console.error('📡 Socket connection error:', error);
-          setIsConnected(false);
-        });
-      }
-    };
-
-    initializeSocket();
-
-    return () => {
+    // If no user is logged in, disconnect existing socket and return
+    if (!userData) {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
+        setSocket(null);
+        setIsConnected(false);
       }
+      return;
+    }
+
+    const socketUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace('/api', '');
+
+    if (!socketRef.current) {
+      console.log('📡 Initializing socket for user:', userData._id);
+      const newSocket = io(socketUrl, {
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      socketRef.current = newSocket;
+      setSocket(newSocket);
+
+      newSocket.on('connect', () => {
+        console.log('📡 Socket connected:', newSocket.id);
+        setIsConnected(true);
+        newSocket.emit('setup', userData);
+      });
+
+      // Global delivery confirmation listener
+      newSocket.on('message-received', (newMessage: any) => {
+        console.log('📩 Message received globally, sending delivery confirmation');
+        newSocket.emit('message-delivered', {
+          messageId: newMessage._id,
+          senderId: newMessage.senderId
+        });
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('📡 Socket disconnected');
+        setIsConnected(false);
+      });
+
+      newSocket.on('connect_error', (error) => {
+        console.error('📡 Socket connection error:', error);
+        setIsConnected(false);
+      });
+    } else if (socketRef.current && !socketRef.current.connected) {
+      socketRef.current.connect();
+    }
+
+    return () => {
+      // We don't necessarily want to disconnect on every re-render, 
+      // but if the component unmounts or userData changes to null, we should.
     };
-  }, []);
+  }, [userData]); // Re-run when userData changes (login/logout)
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>
