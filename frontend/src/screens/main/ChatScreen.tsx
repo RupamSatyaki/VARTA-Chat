@@ -39,8 +39,8 @@ const ChatScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const { socket, isConnected } = useSocket();
-  const { userData } = useAuthStore();
-  const { messages, setMessages, addMessage } = useChatStore();
+  const { userData, userToken } = useAuthStore();
+  const { messages, setMessages, addMessage, updateMessageStatus, markMessagesAsSeen } = useChatStore();
   
   const chatMessages = messages[chat._id] || [];
   const flatListRef = useRef<FlatList>(null);
@@ -57,9 +57,19 @@ const ChatScreen: React.FC = () => {
           content: m.content,
           senderId: m.sender,
           receiverId: m.receiver,
+          status: m.status,
           timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         }));
         setMessages(chat._id, formattedMessages);
+        
+        // Mark these messages as seen in the backend
+        if (socket && userData) {
+          socket.emit('message-seen', {
+            chatId: chat._id,
+            senderId: user._id, // The person who sent the messages we are reading
+            receiverId: userData._id // Us
+          });
+        }
       }
     } catch (error) {
       console.error('Fetch messages error:', error);
@@ -81,9 +91,35 @@ const ChatScreen: React.FC = () => {
             content: newMessage.content,
             senderId: newMessage.senderId,
             receiverId: newMessage.receiverId,
+            status: 'seen', // Since we are in the chat, it's immediately seen
             timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
           addMessage(chat._id, formattedMsg);
+
+          // Emit delivered confirmation
+          socket.emit('message-delivered', {
+            messageId: newMessage._id,
+            senderId: newMessage.senderId
+          });
+
+          // Emit seen confirmation since we are in the active chat
+          socket.emit('message-seen', {
+            chatId: chat._id,
+            senderId: newMessage.senderId,
+            receiverId: userData?._id
+          });
+        }
+      });
+
+      socket.on('message-status-updated', ({ messageId, chatId, status }: any) => {
+        if (chatId === chat._id) {
+          updateMessageStatus(chatId, messageId, status);
+        }
+      });
+
+      socket.on('messages-seen', ({ chatId, receiverId }: any) => {
+        if (chatId === chat._id) {
+          markMessagesAsSeen(chatId, userData?._id || ''); // Mark OUR sent messages as seen
         }
       });
     }
@@ -91,6 +127,8 @@ const ChatScreen: React.FC = () => {
     return () => {
       if (socket) {
         socket.off('message-received');
+        socket.off('message-status-updated');
+        socket.off('messages-seen');
       }
     };
   }, [chat._id, socket]);
@@ -102,6 +140,7 @@ const ChatScreen: React.FC = () => {
       content: message,
       senderId: userData._id,
       receiverId: user._id,
+      status: 'sent',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     socket.emit('new-message', { ...newMessage, chatId: chat._id });
@@ -111,11 +150,30 @@ const ChatScreen: React.FC = () => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === userData?._id;
+    
+    const renderStatusIcon = () => {
+      if (!isMe) return null;
+      
+      switch (item.status) {
+        case 'seen':
+          return <Ionicons name="checkmark-done" size={16} color="#34B7F1" />;
+        case 'delivered':
+          return <Ionicons name="checkmark-done" size={16} color="rgba(255,255,255,0.6)" />;
+        case 'sent':
+          return <Ionicons name="checkmark" size={16} color="rgba(255,255,255,0.6)" />;
+        default:
+          return <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.6)" />;
+      }
+    };
+
     return (
       <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
           <Text style={styles.messageText}>{item.content}</Text>
-          <Text style={styles.timestamp}>{item.timestamp}</Text>
+          <View style={styles.messageFooter}>
+            <Text style={styles.timestamp}>{item.timestamp}</Text>
+            {renderStatusIcon()}
+          </View>
         </View>
       </View>
     );
@@ -275,11 +333,16 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 15,
   },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 2,
+  },
   timestamp: {
     fontSize: 10,
     color: 'rgba(255,255,255,0.5)',
-    marginTop: 3,
-    alignSelf: 'flex-end',
+    marginRight: 4,
   },
   footerWrapper: {
     width: '100%',

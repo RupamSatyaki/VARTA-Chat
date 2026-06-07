@@ -7,6 +7,7 @@ interface Message {
   receiverId?: string;
   timestamp: string;
   chatId?: string;
+  status?: 'sent' | 'delivered' | 'seen';
 }
 
 interface Chat {
@@ -23,6 +24,8 @@ interface ChatState {
   setChats: (chats: Chat[]) => void;
   setMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
+  updateMessageStatus: (chatId: string, messageId: string, status: 'sent' | 'delivered' | 'seen') => void;
+  markMessagesAsSeen: (chatId: string, senderId: string) => void;
   clearChat: (chatId: string) => void;
 }
 
@@ -40,7 +43,6 @@ export const useChatStore = create<ChatState>((set) => ({
   addMessage: (chatId, message) =>
     set((state) => {
       const chatMessages = state.messages[chatId] || [];
-      // Prevent duplicates if needed (using id)
       if (chatMessages.find(m => m.id === message.id)) return state;
       
       return {
@@ -48,6 +50,28 @@ export const useChatStore = create<ChatState>((set) => ({
           ...state.messages,
           [chatId]: [...chatMessages, message]
         }
+      };
+    }),
+
+  updateMessageStatus: (chatId, messageId, status) =>
+    set((state) => {
+      const chatMessages = state.messages[chatId] || [];
+      const updatedMessages = chatMessages.map((m) =>
+        m.id === messageId ? { ...m, status } : m
+      );
+      return {
+        messages: { ...state.messages, [chatId]: updatedMessages }
+      };
+    }),
+
+  markMessagesAsSeen: (chatId, senderId) =>
+    set((state) => {
+      const chatMessages = state.messages[chatId] || [];
+      const updatedMessages = chatMessages.map((m) =>
+        m.senderId === senderId && m.status !== 'seen' ? { ...m, status: 'seen' as const } : m
+      );
+      return {
+        messages: { ...state.messages, [chatId]: updatedMessages }
       };
     }),
 
