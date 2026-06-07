@@ -61,6 +61,13 @@ const HomeScreen: React.FC = () => {
   const { socket } = useSocket();
   const { userData, logout } = useAuthStore();
 
+  // Helper to check if a user ID or object matches the current user
+  const isMe = useCallback((sender: any) => {
+    if (!sender || !userData) return false;
+    const senderId = typeof sender === 'object' ? sender._id : sender;
+    return senderId === userData._id;
+  }, [userData]);
+
   const fetchChats = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
@@ -107,7 +114,7 @@ const HomeScreen: React.FC = () => {
             }
           };
 
-          if (newMessage.senderId !== userData._id) {
+          if (!isMe(newMessage.senderId)) {
             targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
           }
 
@@ -162,15 +169,12 @@ const HomeScreen: React.FC = () => {
           if (chat._id === chatId) {
             const isMeReceiver = receiverId === userData?._id;
             const latestMsg = chat.latestMessage;
-            const isMeSender = latestMsg && (
-              (typeof latestMsg.sender === 'string' && latestMsg.sender === userData?._id) ||
-              (typeof latestMsg.sender === 'object' && latestMsg.sender._id === userData?._id)
-            );
+            const isLatestFromMe = latestMsg && isMe(latestMsg.sender);
 
             return {
               ...chat,
               unreadCount: isMeReceiver ? 0 : chat.unreadCount,
-              latestMessage: (isMeSender && latestMsg) 
+              latestMessage: (isLatestFromMe && latestMsg) 
                 ? { ...latestMsg, status: 'seen' as const } 
                 : latestMsg
             };
@@ -191,7 +195,7 @@ const HomeScreen: React.FC = () => {
         socket.off('messages-seen', handleMessagesSeen);
       };
     }
-  }, [socket, userData?._id, fetchChats]);
+  }, [socket, userData, fetchChats, isMe]);
 
   const formatTime = (dateString: string) => {
     if (!dateString) return '';
