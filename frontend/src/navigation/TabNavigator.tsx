@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import HomeScreen from '../screens/main/HomeScreen';
 import Header from '../components/common/Header';
+import CustomDrawer from '../components/common/CustomDrawer';
 import { Colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();
@@ -22,15 +23,22 @@ const CallsScreen = () => (
 
 const TabNavigator = () => {
   const navigation = useNavigation<any>();
+  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       
-      {/* Global Header: Click search bar to open Search Screen */}
+      {/* Global Header: Click menu to open Floating Sidebar */}
       <Header 
         onSearchPress={() => navigation.navigate('Search')}
-        onMenuPress={() => console.log('Menu')}
+        onMenuPress={() => setIsDrawerOpen(true)}
+      />
+
+      {/* Floating Sidebar */}
+      <CustomDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)} 
       />
 
       <Tab.Navigator
