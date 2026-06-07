@@ -33,7 +33,10 @@ interface Chat {
   users: User[];
   unreadCount?: number;
   latestMessage?: {
+    _id: string;
     content: string;
+    status: 'sent' | 'delivered' | 'seen';
+    createdAt: string;
     sender: {
       _id: string;
       name?: string;
@@ -67,7 +70,6 @@ const HomeScreen: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Fetch chats error:', error);
-      // Don't show alert every time to avoid annoying user during re-fetches
     } finally {
       setLoading(false);
     }
@@ -94,7 +96,10 @@ const HomeScreen: React.FC = () => {
           const targetChat = { ...updatedChats[chatIndex] };
 
           targetChat.latestMessage = {
+            _id: newMessage._id,
             content: newMessage.content,
+            status: newMessage.status || 'sent',
+            createdAt: new Date().toISOString(),
             sender: {
               _id: newMessage.senderId,
               name: newMessage.senderName,
@@ -102,7 +107,6 @@ const HomeScreen: React.FC = () => {
             }
           };
 
-          // Increment unread count locally
           targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
 
           updatedChats.splice(chatIndex, 1);
@@ -110,11 +114,62 @@ const HomeScreen: React.FC = () => {
         });
       });
 
+      socket.on('message-status-updated', ({ messageId, chatId, status }: any) => {
+        setChats(prev => prev.map(chat => {
+          if (chat._id === chatId && chat.latestMessage?._id === messageId) {
+            return {
+              ...chat,
+              latestMessage: { ...chat.latestMessage, status }
+            };
+          }
+          return chat;
+        }));
+      });
+
+      socket.on('messages-seen', ({ chatId }: any) => {
+        setChats(prev => prev.map(chat => {
+          if (chat._id === chatId && chat.latestMessage && chat.latestMessage.sender._id === userData?._id) {
+            return {
+              ...chat,
+              latestMessage: { ...chat.latestMessage, status: 'seen' }
+            };
+          }
+          return chat;
+        }));
+      });
+
       return () => {
         socket.off('message-received');
+        socket.off('message-status-updated');
+        socket.off('messages-seen');
       };
     }
-  }, [socket, fetchChats]);
+  }, [socket, fetchChats, userData?._id]);
+
+  const formatTime = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diff / (1000 * 60));
+    const diffInHours = Math.floor(diff / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInHours < 24) {
+      if (now.getDate() === date.getDate()) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      return 'Yesterday';
+    }
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return days[date.getDay()];
+    }
+    return date.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
+  };
 
   const getChatDisplayName = (chat: Chat) => {
     if (chat.isGroupChat) {
@@ -141,6 +196,21 @@ const HomeScreen: React.FC = () => {
     const senderName = item.latestMessage?.sender.name || item.latestMessage?.sender.number;
     const hasUnread = (item.unreadCount || 0) > 0;
 
+    const renderStatusIcon = () => {
+      if (!isLatestMessageFromMe || !item.latestMessage) return null;
+      
+      switch (item.latestMessage.status) {
+        case 'seen':
+          return <Ionicons name="checkmark-done" size={16} color="#34B7F1" style={{ marginRight: 4 }} />;
+        case 'delivered':
+          return <Ionicons name="checkmark-done" size={16} color={Colors.textSecondary} style={{ marginRight: 4 }} />;
+        case 'sent':
+          return <Ionicons name="checkmark" size={16} color={Colors.textSecondary} style={{ marginRight: 4 }} />;
+        default:
+          return <Ionicons name="time-outline" size={14} color={Colors.textSecondary} style={{ marginRight: 4 }} />;
+      }
+    };
+
     return (
       <TouchableOpacity 
         style={styles.chatItem} 
@@ -158,19 +228,22 @@ const HomeScreen: React.FC = () => {
           <View style={styles.chatHeader}>
             <Text style={styles.chatName} numberOfLines={1}>{getChatDisplayName(item)}</Text>
             <Text style={[styles.time, hasUnread && styles.unreadTime]}>
-              {item.latestMessage ? 'Now' : ''} 
+              {item.latestMessage ? formatTime(item.latestMessage.createdAt) : ''}
             </Text>
           </View>
           
           <View style={styles.chatFooter}>
-            <Text 
-              style={[styles.lastMessage, hasUnread && styles.unreadMessage]} 
-              numberOfLines={1}
-            >
-              {item.latestMessage 
-                ? `${isLatestMessageFromMe ? 'You' : senderName}: ${item.latestMessage.content}`
-                : 'No messages yet'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              {renderStatusIcon()}
+              <Text 
+                style={[styles.lastMessage, hasUnread && styles.unreadMessage]} 
+                numberOfLines={1}
+              >
+                {item.latestMessage 
+                  ? `${isLatestMessageFromMe ? 'You' : senderName}: ${item.latestMessage.content}`
+                  : 'No messages yet'}
+              </Text>
+            </View>
             {hasUnread && (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadText}>{item.unreadCount}</Text>
