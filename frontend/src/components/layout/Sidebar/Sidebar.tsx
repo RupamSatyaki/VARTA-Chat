@@ -19,6 +19,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 // Modular Components
 import Header from './Header';
 import Profile from './Profile';
+import UserInfo from './UserInfo';
 import MenuItem from './MenuItem';
 import Dropdown from './Dropdown';
 
@@ -92,8 +93,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <Profile user={userData} />
 
+        <UserInfo user={userData} />
+
         <View style={styles.menuList}>
-          <MenuItem icon="person-outline" title="Account" />
           <MenuItem icon="notifications-outline" title="Notifications" />
           <MenuItem icon="lock-closed-outline" title="Privacy" />
           <MenuItem icon="color-palette-outline" title="Appearance" />
@@ -131,7 +133,7 @@ const styles = StyleSheet.create({
   },
   menuList: {
     flex: 1,
-    paddingTop: 10,
+    paddingTop: 5,
   },
   footer: {
     padding: 20,
