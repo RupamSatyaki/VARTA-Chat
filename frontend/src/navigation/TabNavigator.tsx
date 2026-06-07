@@ -5,21 +5,12 @@ import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import HomeScreen from '../screens/main/HomeScreen';
 import Header from '../components/common/Header';
-import CustomDrawer from '../components/common/CustomDrawer';
+import Sidebar from '../components/layout/Sidebar/Sidebar';
 import { Colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();
 
-// Placeholder screens for other tabs
-const UpdatesScreen = () => (
-  <View style={styles.placeholder}><Text style={styles.text}>Updates (Status) Screen</Text></View>
-);
-const CommunitiesScreen = () => (
-  <View style={styles.placeholder}><Text style={styles.text}>Communities Screen</Text></View>
-);
-const CallsScreen = () => (
-  <View style={styles.placeholder}><Text style={styles.text}>Calls Screen</Text></View>
-);
+// ... rest ...
 
 const TabNavigator = () => {
   const navigation = useNavigation<any>();
@@ -35,8 +26,8 @@ const TabNavigator = () => {
         onMenuPress={() => setIsDrawerOpen(true)}
       />
 
-      {/* Floating Sidebar */}
-      <CustomDrawer 
+      {/* Floating Sidebar (Modular) */}
+      <Sidebar 
         isOpen={isDrawerOpen} 
         onClose={() => setIsDrawerOpen(false)} 
       />
@@ -74,9 +65,9 @@ const TabNavigator = () => {
         })}
       >
         <Tab.Screen name="Chats" component={HomeScreen} />
-        <Tab.Screen name="Updates" component={UpdatesScreen} />
-        <Tab.Screen name="Communities" component={CommunitiesScreen} />
-        <Tab.Screen name="Calls" component={CallsScreen} />
+        <Tab.Screen name="Updates" component={HomeScreen} />
+        <Tab.Screen name="Communities" component={HomeScreen} />
+        <Tab.Screen name="Calls" component={HomeScreen} />
       </Tab.Navigator>
     </SafeAreaView>
   );
