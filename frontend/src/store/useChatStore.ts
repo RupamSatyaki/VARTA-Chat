@@ -22,6 +22,7 @@ interface Chat {
 interface ChatState {
   chats: Chat[];
   messages: Record<string, Message[]>; // chatId -> messages[]
+  typingStatus: Record<string, boolean>; // chatId -> isTyping
   setChats: (chats: Chat[]) => void;
   setMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
@@ -31,14 +32,21 @@ interface ChatState {
   updateChatFromMessage: (messageData: any, isMe: boolean) => void;
   updateChatStatus: (chatId: string, messageId: string, status: string) => void;
   syncChatSeen: (chatId: string, receiverId: string, currentUserId: string) => void;
+  setTyping: (chatId: string, isTyping: boolean) => void;
   clearChat: (chatId: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   chats: [],
   messages: {},
+  typingStatus: {},
 
   setChats: (chats) => set({ chats }),
+  
+  setTyping: (chatId, isTyping) =>
+    set((state) => ({
+      typingStatus: { ...state.typingStatus, [chatId]: isTyping }
+    })),
 
   setMessages: (chatId, messages) => 
     set((state) => ({

@@ -38,7 +38,9 @@ const HomeScreen: React.FC = () => {
     setChats, 
     updateChatFromMessage, 
     updateChatStatus, 
-    syncChatSeen 
+    syncChatSeen,
+    typingStatus,
+    setTyping
   } = useChatStore();
 
   const isMe = useCallback((sender: any) => {
@@ -99,15 +101,20 @@ const HomeScreen: React.FC = () => {
       socket.on('message-sent', handleMessageSent);
       socket.on('message-status-updated', handleStatusUpdated);
       socket.on('messages-seen', handleMessagesSeen);
+      
+      socket.on('typing', ({ chatId }: any) => setTyping(chatId, true));
+      socket.on('stop-typing', ({ chatId }: any) => setTyping(chatId, false));
 
       return () => {
         socket.off('message-received', handleMessageReceived);
         socket.off('message-sent', handleMessageSent);
         socket.off('message-status-updated', handleStatusUpdated);
         socket.off('messages-seen', handleMessagesSeen);
+        socket.off('typing');
+        socket.off('stop-typing');
       };
     }
-  }, [socket, userData, chats, fetchChats, updateChatFromMessage, updateChatStatus, syncChatSeen, isMe]);
+  }, [socket, userData, chats, fetchChats, updateChatFromMessage, updateChatStatus, syncChatSeen, isMe, setTyping]);
 
   const formatTime = (dateString: string) => {
     if (!dateString) return '';
@@ -145,7 +152,6 @@ const HomeScreen: React.FC = () => {
   const handleChatPress = (chat: any) => {
     const otherUser = chat.users.find((u: any) => u._id !== userData?._id);
     if (otherUser) {
-      // Optmistic reset unread count
       syncChatSeen(chat._id, userData?._id || '', userData?._id || '');
       navigation.navigate('Chat', { user: otherUser, chat });
     }
@@ -155,9 +161,10 @@ const HomeScreen: React.FC = () => {
     const latestMsg = item.latestMessage;
     const isLatestFromMe = latestMsg && isMe(latestMsg.sender);
     const hasUnread = (item.unreadCount || 0) > 0;
+    const isTyping = typingStatus[item._id] || false;
 
     const renderStatusIcon = () => {
-      if (!isLatestFromMe || !latestMsg) return null;
+      if (!isLatestFromMe || !latestMsg || isTyping) return null;
       switch (latestMsg.status) {
         case 'seen': return <Ionicons name="checkmark-done" size={16} color="#34B7F1" style={{ marginRight: 4 }} />;
         case 'delivered': return <Ionicons name="checkmark-done" size={16} color={Colors.textSecondary} style={{ marginRight: 4 }} />;
@@ -175,15 +182,22 @@ const HomeScreen: React.FC = () => {
         <View style={styles.chatInfo}>
           <View style={styles.chatHeader}>
             <Text style={styles.chatName} numberOfLines={1}>{getChatDisplayName(item)}</Text>
-            <Text style={[styles.time, hasUnread && styles.unreadTime]}>
-              {latestMsg ? formatTime(latestMsg.createdAt) : ''}
+            <Text style={[styles.time, (hasUnread || isTyping) && styles.unreadTime]}>
+              {isTyping ? 'typing...' : (latestMsg ? formatTime(latestMsg.createdAt) : '')}
             </Text>
           </View>
           <View style={styles.chatFooter}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              {renderStatusIcon()}
-              <Text style={[styles.lastMessage, hasUnread && styles.unreadMessage]} numberOfLines={1}>
-                {latestMsg ? latestMsg.content : 'No messages yet'}
+              {isTyping ? null : renderStatusIcon()}
+              <Text 
+                style={[
+                  styles.lastMessage, 
+                  hasUnread && styles.unreadMessage,
+                  isTyping && { color: Colors.primary, fontWeight: 'bold' }
+                ]} 
+                numberOfLines={1}
+              >
+                {isTyping ? 'typing...' : (latestMsg ? latestMsg.content : 'No messages yet')}
               </Text>
             </View>
             {hasUnread && <View style={styles.unreadBadge}><Text style={styles.unreadText}>{item.unreadCount}</Text></View>}
@@ -194,7 +208,20 @@ const HomeScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>VARTA</Text>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Search')}>
+            <Ionicons name="search" size={22} color={Colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={logout}>
+            <Ionicons name="log-out-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {loading && chats.length === 0 ? (
         <View style={styles.centerContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
       ) : (
@@ -211,12 +238,16 @@ const HomeScreen: React.FC = () => {
           }
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 0.5, borderBottomColor: Colors.lightGray },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.primary, letterSpacing: 1 },
+  headerIcons: { flexDirection: 'row', alignItems: 'center' },
+  iconBtn: { marginLeft: 20 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { paddingHorizontal: 16, paddingBottom: 20 },
   chatItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },

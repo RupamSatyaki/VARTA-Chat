@@ -112,9 +112,20 @@ module.exports = (io, socket) => {
     }
   };
 
+  // Handle typing status
+  const typing = ({ chatId, receiverId }) => {
+    socket.in(receiverId).emit('typing', { chatId, userId: socket.id });
+  };
+
+  const stopTyping = ({ chatId, receiverId }) => {
+    socket.in(receiverId).emit('stop-typing', { chatId, userId: socket.id });
+  };
+
   // Register events
   socket.on('join-chat', joinChat);
   socket.on('new-message', newMessage);
   socket.on('message-delivered', messageDelivered);
   socket.on('message-seen', messageSeen);
+  socket.on('typing', typing);
+  socket.on('stop-typing', stopTyping);
 };

@@ -41,10 +41,21 @@ const ChatScreen: React.FC = () => {
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
-  const { messages, setMessages, addMessage, updateMessageStatus, markMessagesAsSeen } = useChatStore();
+  const { 
+    messages, 
+    setMessages, 
+    addMessage, 
+    updateMessageStatus, 
+    markMessagesAsSeen, 
+    updateMessageId,
+    typingStatus,
+    setTyping
+  } = useChatStore();
   
   const chatMessages = messages[chat._id] || [];
+  const isOtherUserTyping = typingStatus[chat._id] || false;
   const flatListRef = useRef<FlatList>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchMessages = useCallback(async () => {
     if (!userData?._id || !user?._id) return;
@@ -106,6 +117,10 @@ const ChatScreen: React.FC = () => {
         }
       });
 
+      socket.on('message-sent', ({ tempId, message: savedMsg }: any) => {
+        updateMessageId(chat._id, tempId, savedMsg._id);
+      });
+
       socket.on('message-status-updated', ({ messageId, chatId, status }: any) => {
         if (chatId === chat._id) {
           updateMessageStatus(chatId, messageId, status);
@@ -117,6 +132,14 @@ const ChatScreen: React.FC = () => {
           markMessagesAsSeen(chatId, userData?._id || '');
         }
       });
+
+      socket.on('typing', ({ chatId }: any) => {
+        if (chatId === chat._id) setTyping(chatId, true);
+      });
+
+      socket.on('stop-typing', ({ chatId }: any) => {
+        if (chatId === chat._id) setTyping(chatId, false);
+      });
     }
 
     return () => {
@@ -124,12 +147,34 @@ const ChatScreen: React.FC = () => {
         socket.off('message-received');
         socket.off('message-status-updated');
         socket.off('messages-seen');
+        socket.off('message-sent');
+        socket.off('typing');
+        socket.off('stop-typing');
       }
     };
-  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, markMessagesAsSeen]);
+  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, markMessagesAsSeen, updateMessageId, setTyping]);
+
+  const handleTextChange = (text: string) => {
+    setMessage(text);
+    if (!socket || !isConnected) return;
+
+    socket.emit('typing', { chatId: chat._id, receiverId: user._id });
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('stop-typing', { chatId: chat._id, receiverId: user._id });
+    }, 2000);
+  };
 
   const handleSendMessage = () => {
     if (message.trim().length === 0 || !userData || !socket) return;
+    
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      socket.emit('stop-typing', { chatId: chat._id, receiverId: user._id });
+    }
+
     const newMessage: Message = {
       id: Date.now().toString(),
       content: message,
@@ -188,7 +233,9 @@ const ChatScreen: React.FC = () => {
           <Image source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} style={styles.avatar} />
           <View style={{ flex: 1 }}>
             <Text style={styles.name} numberOfLines={1}>{user.name || user.number}</Text>
-            <Text style={styles.status}>{isConnected ? 'Online' : 'Connecting...'}</Text>
+            <Text style={[styles.status, isOtherUserTyping && { color: Colors.primary, fontWeight: 'bold' }]}>
+              {isOtherUserTyping ? 'typing...' : (isConnected ? 'Online' : 'Connecting...')}
+            </Text>
           </View>
           <TouchableOpacity style={styles.btn}><Ionicons name="videocam" size={22} color={Colors.primary} /></TouchableOpacity>
           <TouchableOpacity style={styles.btn}><Ionicons name="call" size={20} color={Colors.primary} /></TouchableOpacity>
@@ -229,7 +276,7 @@ const ChatScreen: React.FC = () => {
                 placeholder="Message"
                 placeholderTextColor={Colors.textSecondary}
                 value={message}
-                onChangeText={setMessage}
+                onChangeText={handleTextChange}
                 multiline
               />
               <TouchableOpacity style={styles.btn}><Ionicons name="attach" size={24} color={Colors.textSecondary} style={{ transform: [{ rotate: '45deg' }] }} /></TouchableOpacity>
