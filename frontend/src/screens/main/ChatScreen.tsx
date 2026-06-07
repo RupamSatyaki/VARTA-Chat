@@ -16,7 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import io from 'socket.io-client';
+import { useSocket } from '../../context/SocketContext';
 import { Colors } from '../../theme/colors';
 
 interface Message {
@@ -35,10 +35,9 @@ const ChatScreen: React.FC = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [socketConnected, setSocketConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  const socket = useRef<any>(null);
+  const { socket, isConnected } = useSocket();
   const flatListRef = useRef<FlatList>(null);
 
   const fetchMessages = async (userId: string) => {
@@ -79,36 +78,37 @@ const ChatScreen: React.FC = () => {
         const parsedUser = JSON.parse(storedUserData);
         setCurrentUser(parsedUser);
         await fetchMessages(parsedUser._id);
-
-        const socketUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace('/api', '');
-        socket.current = io(socketUrl);
-        socket.current.emit('setup', parsedUser);
-        
-        socket.current.on('connected', () => setSocketConnected(true));
-        socket.current.emit('join-chat', chat._id);
-
-        socket.current.on('message-received', (newMessage: any) => {
-          if (newMessage.chatId === chat._id) {
-            const formattedMsg: Message = {
-              id: newMessage._id || Date.now().toString(),
-              content: newMessage.content,
-              senderId: newMessage.senderId,
-              receiverId: newMessage.receiverId,
-              timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            };
-            setMessages((prev) => [...prev, formattedMsg]);
-          }
-        });
       }
     };
+
     initializeChat();
+
+    if (socket) {
+      socket.emit('join-chat', chat._id);
+
+      socket.on('message-received', (newMessage: any) => {
+        if (newMessage.chatId === chat._id) {
+          const formattedMsg: Message = {
+            id: newMessage._id || Date.now().toString(),
+            content: newMessage.content,
+            senderId: newMessage.senderId,
+            receiverId: newMessage.receiverId,
+            timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          };
+          setMessages((prev) => [...prev, formattedMsg]);
+        }
+      });
+    }
+
     return () => {
-      if (socket.current) socket.current.disconnect();
+      if (socket) {
+        socket.off('message-received');
+      }
     };
-  }, [chat._id]);
+  }, [chat._id, socket]);
 
   const handleSendMessage = () => {
-    if (message.trim().length === 0 || !currentUser) return;
+    if (message.trim().length === 0 || !currentUser || !socket) return;
     const newMessage: Message = {
       id: Date.now().toString(),
       content: message,
@@ -116,7 +116,7 @@ const ChatScreen: React.FC = () => {
       receiverId: user._id,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-    socket.current.emit('new-message', { ...newMessage, chatId: chat._id });
+    socket.emit('new-message', { ...newMessage, chatId: chat._id });
     setMessages((prev) => [...prev, newMessage]);
     setMessage('');
   };
@@ -147,7 +147,7 @@ const ChatScreen: React.FC = () => {
           <Image source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} style={styles.avatar} />
           <View style={{ flex: 1 }}>
             <Text style={styles.name} numberOfLines={1}>{user.name || user.number}</Text>
-            <Text style={styles.status}>{socketConnected ? 'Online' : 'Connecting...'}</Text>
+            <Text style={styles.status}>{isConnected ? 'Online' : 'Connecting...'}</Text>
           </View>
           <TouchableOpacity style={styles.btn}><Ionicons name="videocam" size={22} color={Colors.primary} /></TouchableOpacity>
           <TouchableOpacity style={styles.btn}><Ionicons name="call" size={20} color={Colors.primary} /></TouchableOpacity>
