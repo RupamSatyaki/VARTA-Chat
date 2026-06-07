@@ -28,8 +28,14 @@ const messageSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['sent', 'delivered', 'read'],
+    enum: ['sent', 'delivered', 'seen'],
     default: 'sent',
+  },
+  deliveredAt: {
+    type: Date,
+  },
+  seenAt: {
+    type: Date,
   },
   isDeleted: {
     type: Boolean,
