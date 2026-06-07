@@ -49,7 +49,8 @@ module.exports = (io, socket) => {
         _id: message._id,
         createdAt: message.createdAt,
         senderName: sender?.name,
-        senderNumber: sender?.number
+        senderNumber: sender?.number,
+        status: 'sent'
       });
       
       console.log(`📩 Message relayed to: ${receiverId}`);
@@ -58,7 +59,52 @@ module.exports = (io, socket) => {
     }
   };
 
+  // Handle message delivered (Receiver got the message)
+  const messageDelivered = async ({ messageId, senderId }) => {
+    try {
+      const message = await Message.findByIdAndUpdate(messageId, {
+        status: 'delivered',
+        deliveredAt: Date.now()
+      }, { new: true });
+
+      if (message) {
+        // Notify the sender that the message was delivered
+        socket.in(senderId).emit('message-status-updated', {
+          messageId,
+          chatId: message.chat,
+          status: 'delivered'
+        });
+        console.log(`✔ Message ${messageId} marked as delivered`);
+      }
+    } catch (error) {
+      console.error('❌ Error in message-delivered:', error.message);
+    }
+  };
+
+  // Handle message seen (Receiver opened the chat)
+  const messageSeen = async ({ chatId, senderId, receiverId }) => {
+    try {
+      // Mark all messages in this chat sent by 'senderId' to 'receiverId' as seen
+      await Message.updateMany(
+        { chat: chatId, sender: senderId, receiver: receiverId, status: { $ne: 'seen' } },
+        { status: 'seen', seenAt: Date.now() }
+      );
+
+      // Notify the sender that their messages were read
+      socket.in(senderId).emit('messages-seen', {
+        chatId,
+        receiverId // The person who read the messages
+      });
+      
+      console.log(`✔ Messages in chat ${chatId} marked as seen by ${receiverId}`);
+    } catch (error) {
+      console.error('❌ Error in message-seen:', error.message);
+    }
+  };
+
   // Register events
   socket.on('join-chat', joinChat);
   socket.on('new-message', newMessage);
+  socket.on('message-delivered', messageDelivered);
+  socket.on('message-seen', messageSeen);
 };
