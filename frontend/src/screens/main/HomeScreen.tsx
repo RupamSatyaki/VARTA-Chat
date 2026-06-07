@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -11,11 +11,12 @@ import {
   StatusBar,
   Image
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import io from 'socket.io-client';
+import { useSocket } from '../../context/SocketContext';
+import { useAuthStore } from '../../store/useAuthStore';
+import apiClient from '../../api/apiClient';
 import { Colors } from '../../theme/colors';
 
 interface User {
@@ -30,6 +31,7 @@ interface Chat {
   chatName?: string;
   isGroupChat: boolean;
   users: User[];
+  unreadCount?: number;
   latestMessage?: {
     content: string;
     sender: {
@@ -44,6 +46,7 @@ type RootStackParamList = {
   Home: undefined;
   Chat: { user: User; chat: Chat };
   Login: undefined;
+  Search: undefined;
 };
 
 const HomeScreen: React.FC = () => {
@@ -51,121 +54,92 @@ const HomeScreen: React.FC = () => {
   const isFocused = useIsFocused();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const socket = useRef<any>(null);
+  
+  const { socket } = useSocket();
+  const { userData, logout } = useAuthStore();
 
-  useEffect(() => {
-    const loadData = async () => {
-      const userData = await AsyncStorage.getItem('userData');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setCurrentUser(parsedUser);
-        
-        // Initialize Socket
-        const socketUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api').replace('/api', '');
-        socket.current = io(socketUrl);
-        socket.current.emit('setup', parsedUser);
-
-        socket.current.on('message-received', (newMessage: any) => {
-          setChats((prevChats) => {
-            const updatedChats = prevChats.map((chat) => {
-              if (chat._id === newMessage.chatId) {
-                return {
-                  ...chat,
-                  latestMessage: {
-                    content: newMessage.content,
-                    sender: {
-                      _id: newMessage.senderId,
-                      name: newMessage.senderName, // Backend might need to send this or we fetch
-                      number: newMessage.senderNumber
-                    }
-                  }
-                };
-              }
-              return chat;
-            });
-            
-            // Move the updated chat to the top
-            const chatIndex = updatedChats.findIndex(c => c._id === newMessage.chatId);
-            if (chatIndex > -1) {
-              const [movedChat] = updatedChats.splice(chatIndex, 1);
-              return [movedChat, ...updatedChats];
-            }
-            return updatedChats;
-          });
-        });
-      }
-    };
-    loadData();
-
-    return () => {
-      if (socket.current) {
-        socket.current.disconnect();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isFocused && currentUser) {
-      fetchChats();
-    }
-  }, [isFocused, currentUser]);
-
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
-      
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${apiUrl}/chats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setChats(data);
-      } else {
-        Alert.alert('Error', data.message || 'Failed to fetch chats');
+      const response = await apiClient.get('/chats');
+      if (response.data) {
+        setChats(response.data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fetch chats error:', error);
-      Alert.alert('Connection Error', 'Could not connect to server');
+      // Don't show alert every time to avoid annoying user during re-fetches
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isFocused && userData) {
+      fetchChats();
+    }
+  }, [isFocused, userData, fetchChats]);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('message-received', (newMessage: any) => {
+        setChats((prevChats) => {
+          const chatIndex = prevChats.findIndex(c => c._id === newMessage.chatId);
+          
+          if (chatIndex === -1) {
+            fetchChats();
+            return prevChats;
+          }
+
+          const updatedChats = [...prevChats];
+          const targetChat = { ...updatedChats[chatIndex] };
+
+          targetChat.latestMessage = {
+            content: newMessage.content,
+            sender: {
+              _id: newMessage.senderId,
+              name: newMessage.senderName,
+              number: newMessage.senderNumber
+            }
+          };
+
+          // Increment unread count locally
+          targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
+
+          updatedChats.splice(chatIndex, 1);
+          return [targetChat, ...updatedChats];
+        });
+      });
+
+      return () => {
+        socket.off('message-received');
+      };
+    }
+  }, [socket, fetchChats]);
 
   const getChatDisplayName = (chat: Chat) => {
     if (chat.isGroupChat) {
       return chat.chatName;
     }
-    const otherUser = chat.users.find(u => u._id !== currentUser?._id);
-    return otherUser?.number || otherUser?.name || 'Unknown User';
+    const otherUser = chat.users.find(u => u._id !== userData?._id);
+    return otherUser?.name || otherUser?.number || 'Unknown User';
   };
 
   const handleChatPress = (chat: Chat) => {
-    const otherUser = chat.users.find(u => u._id !== currentUser?._id);
+    const otherUser = chat.users.find(u => u._id !== userData?._id);
     if (otherUser) {
+      setChats(prev => prev.map(c => c._id === chat._id ? { ...c, unreadCount: 0 } : c));
       navigation.navigate('Chat', { user: otherUser, chat });
     }
   };
   
   const handleLogout = async () => {
-    try {
-      await AsyncStorage.removeItem('userToken');
-      await AsyncStorage.removeItem('userData');
-      navigation.replace('Login');
-    } catch (e) {
-      console.error('Logout failed', e);
-    }
+    await logout();
   };
 
   const renderChatItem = ({ item }: { item: Chat }) => {
-    const isLatestMessageFromMe = item.latestMessage?.sender._id === currentUser?._id;
+    const isLatestMessageFromMe = item.latestMessage?.sender._id === userData?._id;
     const senderName = item.latestMessage?.sender.name || item.latestMessage?.sender.number;
+    const hasUnread = (item.unreadCount || 0) > 0;
 
     return (
       <TouchableOpacity 
@@ -173,17 +147,36 @@ const HomeScreen: React.FC = () => {
         activeOpacity={0.7}
         onPress={() => handleChatPress(item)}
       >
-        <Image 
-          source={{ uri: item.users.find(u => u._id !== currentUser?._id)?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
-          style={styles.avatar} 
-        />
+        <View style={styles.avatarContainer}>
+          <Image 
+            source={{ uri: item.users.find(u => u._id !== userData?._id)?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+            style={styles.avatar} 
+          />
+        </View>
+        
         <View style={styles.chatInfo}>
-          <Text style={styles.chatName}>{getChatDisplayName(item)}</Text>
-          <Text style={styles.lastMessage} numberOfLines={1}>
-            {item.latestMessage 
-              ? `${isLatestMessageFromMe ? 'You' : senderName}: ${item.latestMessage.content}`
-              : 'No messages yet'}
-          </Text>
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatName} numberOfLines={1}>{getChatDisplayName(item)}</Text>
+            <Text style={[styles.time, hasUnread && styles.unreadTime]}>
+              {item.latestMessage ? 'Now' : ''} 
+            </Text>
+          </View>
+          
+          <View style={styles.chatFooter}>
+            <Text 
+              style={[styles.lastMessage, hasUnread && styles.unreadMessage]} 
+              numberOfLines={1}
+            >
+              {item.latestMessage 
+                ? `${isLatestMessageFromMe ? 'You' : senderName}: ${item.latestMessage.content}`
+                : 'No messages yet'}
+            </Text>
+            {hasUnread && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadText}>{item.unreadCount}</Text>
+              </View>
+            )}
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -195,12 +188,17 @@ const HomeScreen: React.FC = () => {
       
       <View style={styles.header}>
         <Text style={styles.headerTitle}>VARTA</Text>
-        <TouchableOpacity onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color={Colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Search')}>
+            <Ionicons name="search" size={22} color={Colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {loading ? (
+      {loading && chats.length === 0 ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
@@ -234,13 +232,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
     borderBottomColor: Colors.lightGray,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: Colors.text,
+    color: Colors.primary,
+    letterSpacing: 1,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconBtn: {
+    marginLeft: 20,
   },
   centerContainer: {
     flex: 1,
@@ -249,32 +255,77 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
+    paddingBottom: 20,
   },
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
+  avatarContainer: {
+    position: 'relative',
+  },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
   },
   chatInfo: {
     flex: 1,
     marginLeft: 15,
+    justifyContent: 'center',
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   chatName: {
     color: Colors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
+    flex: 1,
+    marginRight: 10,
+  },
+  time: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  unreadTime: {
+    color: Colors.primary,
+    fontWeight: 'bold',
+  },
+  chatFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   lastMessage: {
     color: Colors.textSecondary,
     fontSize: 14,
-    marginTop: 2,
+    flex: 1,
+    marginRight: 10,
+  },
+  unreadMessage: {
+    color: Colors.white,
+    fontWeight: 'bold',
+  },
+  unreadBadge: {
+    backgroundColor: Colors.primary,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadText: {
+    color: Colors.white,
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   emptyContainer: {
     alignItems: 'center',

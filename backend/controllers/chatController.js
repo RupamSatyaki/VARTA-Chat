@@ -51,6 +51,8 @@ const accessChat = async (req, res) => {
   }
 };
 
+const Message = require('../models/Message');
+
 /**
  * @desc    Fetch all chats for a user
  * @route   GET /api/chats
@@ -58,19 +60,30 @@ const accessChat = async (req, res) => {
  */
 const fetchChats = async (req, res) => {
   try {
-    Chat.find({ users: { $elemMatch: { $eq: req.user._id } } })
+    const results = await Chat.find({ users: { $elemMatch: { $eq: req.user._id } } })
       .populate("users", "-password")
       .populate("groupAdmin", "-password")
       .populate("latestMessage")
-      .sort({ updatedAt: -1 })
-      .then(async (results) => {
-        results = await User.populate(results, {
-          path: "latestMessage.sender",
-          select: "name profilePic number",
-        });
-        res.status(200).send(results);
+      .sort({ updatedAt: -1 });
+
+    const populatedResults = await User.populate(results, {
+      path: "latestMessage.sender",
+      select: "name profilePic number",
+    });
+
+    // Add unread count for each chat
+    const chatsWithUnreadCount = await Promise.all(populatedResults.map(async (chat) => {
+      const unreadCount = await Message.countDocuments({
+        chat: chat._id,
+        receiver: req.user._id,
+        status: { $ne: 'seen' }
       });
+      return { ...chat._doc, unreadCount };
+    }));
+
+    res.status(200).send(chatsWithUnreadCount);
   } catch (error) {
+    console.error(`❌ Error in fetchChats: ${error.message}`);
     res.status(400).send(error.message);
   }
 };
