@@ -15,6 +15,8 @@ import CustomInput from '../../components/common/CustomInput';
 import CustomButton from '../../components/common/CustomButton';
 import { Colors } from '../../theme/colors';
 
+import apiClient from '../../api/apiClient';
+
 const LoginScreen: React.FC = () => {
   const [number, setNumber] = useState('');
   const [error, setError] = useState('');
@@ -35,30 +37,17 @@ const LoginScreen: React.FC = () => {
     setLoading(true);
 
     try {
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
-      
-      const response = await fetch(`${apiUrl}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ number }),
-      });
+      const response = await apiClient.post('/auth/login', { number });
+      const { token, data } = response.data;
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Use Zustand to store auth data
-        await setAuth(data.token, data.data);
-        console.log('Login successful, token stored');
-      } else {
-        setError(data.message || 'Login failed');
-        Alert.alert('Error', data.message || 'Login failed');
-      }
-    } catch (err) {
+      // Use Zustand to store auth data
+      await setAuth(token, data);
+      console.log('Login successful, token stored');
+    } catch (err: any) {
       console.error('API Error:', err);
-      setError('Could not connect to server');
-      Alert.alert('Connection Error', 'Please check if backend server is running.');
+      const message = err.response?.data?.message || 'Could not connect to server';
+      setError(message);
+      Alert.alert(err.response ? 'Error' : 'Connection Error', message);
     } finally {
       setLoading(false);
     }

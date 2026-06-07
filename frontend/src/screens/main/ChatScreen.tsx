@@ -20,6 +20,8 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { Colors } from '../../theme/colors';
 
+import apiClient from '../../api/apiClient';
+
 interface Message {
   id: string;
   content: string;
@@ -37,7 +39,7 @@ const ChatScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const { socket, isConnected } = useSocket();
-  const { userData, userToken } = useAuthStore();
+  const { userData } = useAuthStore();
   const { messages, setMessages, addMessage } = useChatStore();
   
   const chatMessages = messages[chat._id] || [];
@@ -46,17 +48,10 @@ const ChatScreen: React.FC = () => {
   const fetchMessages = async () => {
     try {
       setLoading(true);
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
-      
-      const response = await fetch(`${apiUrl}/messages/${userData?._id}/${user._id}`, {
-        headers: {
-          'Authorization': `Bearer ${userToken}`,
-        },
-      });
+      const response = await apiClient.get(`/messages/${userData?._id}/${user._id}`);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data.success) {
         const formattedMessages = data.data.map((m: any) => ({
           id: m._id,
           content: m.content,
