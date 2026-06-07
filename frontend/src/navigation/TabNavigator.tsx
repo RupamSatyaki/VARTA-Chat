@@ -22,16 +22,14 @@ const CallsScreen = () => (
 
 const TabNavigator = () => {
   const navigation = useNavigation<any>();
-  const [searchValue, setSearchValue] = React.useState('');
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       
-      {/* Global Header with Search Tab */}
+      {/* Global Header: Click search bar to open Search Screen */}
       <Header 
-        searchValue={searchValue}
-        onSearchChange={setSearchValue}
+        onSearchPress={() => navigation.navigate('Search')}
         onMenuPress={() => console.log('Menu')}
       />
 

@@ -1,16 +1,14 @@
 import React from 'react';
-import { StyleSheet, View, TextInput, Pressable, Platform } from 'react-native';
+import { StyleSheet, View, Text, TextInput, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme/colors';
 
 interface HeaderProps {
-  title?: string;
-  searchValue?: string;
-  onSearchChange?: (text: string) => void;
+  onSearchPress?: () => void;
   onMenuPress?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ searchValue, onSearchChange, onMenuPress }) => {
+const Header: React.FC<HeaderProps> = ({ onSearchPress, onMenuPress }) => {
   return (
     <View style={styles.container}>
       <Pressable 
@@ -24,16 +22,15 @@ const Header: React.FC<HeaderProps> = ({ searchValue, onSearchChange, onMenuPres
         <Ionicons name="menu" size={28} color={Colors.text} />
       </Pressable>
 
-      <View style={styles.searchContainer}>
+      <Pressable 
+        onPress={onSearchPress}
+        style={styles.searchContainer}
+      >
         <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search..."
-          placeholderTextColor={Colors.textSecondary}
-          value={searchValue}
-          onChangeText={onSearchChange}
-        />
-      </View>
+        <View style={styles.searchPlaceholder}>
+          <Text style={styles.searchText}>Search...</Text>
+        </View>
+      </Pressable>
     </View>
   );
 };
@@ -66,11 +63,13 @@ const styles = StyleSheet.create({
   searchIcon: {
     marginRight: 8,
   },
-  searchInput: {
+  searchPlaceholder: {
     flex: 1,
-    color: Colors.text,
+    justifyContent: 'center',
+  },
+  searchText: {
+    color: Colors.textSecondary,
     fontSize: 16,
-    height: '100%',
   },
   iconButtonActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
