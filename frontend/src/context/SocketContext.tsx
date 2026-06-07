@@ -43,6 +43,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           newSocket.emit('setup', parsedUser);
         });
 
+        // Global delivery confirmation listener
+        newSocket.on('message-received', (newMessage: any) => {
+          console.log('📩 Message received globally, sending delivery confirmation');
+          newSocket.emit('message-delivered', {
+            messageId: newMessage._id,
+            senderId: newMessage.senderId
+          });
+        });
+
         newSocket.on('disconnect', () => {
           console.log('📡 Socket disconnected');
           setIsConnected(false);

@@ -96,13 +96,8 @@ const ChatScreen: React.FC = () => {
           };
           addMessage(chat._id, formattedMsg);
 
-          // Emit delivered confirmation
-          socket.emit('message-delivered', {
-            messageId: newMessage._id,
-            senderId: newMessage.senderId
-          });
-
           // Emit seen confirmation since we are in the active chat
+          // (delivered confirmation is now handled globally in SocketContext)
           socket.emit('message-seen', {
             chatId: chat._id,
             senderId: newMessage.senderId,

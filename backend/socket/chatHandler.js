@@ -62,10 +62,12 @@ module.exports = (io, socket) => {
   // Handle message delivered (Receiver got the message)
   const messageDelivered = async ({ messageId, senderId }) => {
     try {
-      const message = await Message.findByIdAndUpdate(messageId, {
-        status: 'delivered',
-        deliveredAt: Date.now()
-      }, { new: true });
+      // ONLY update to delivered if current status is 'sent'
+      const message = await Message.findOneAndUpdate(
+        { _id: messageId, status: 'sent' },
+        { status: 'delivered', deliveredAt: Date.now() },
+        { new: true }
+      );
 
       if (message) {
         // Notify the sender that the message was delivered
