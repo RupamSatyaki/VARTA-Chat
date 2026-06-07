@@ -194,20 +194,7 @@ const HomeScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>VARTA</Text>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Search')}>
-            <Ionicons name="search" size={22} color={Colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={logout}>
-            <Ionicons name="log-out-outline" size={24} color={Colors.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
+    <View style={styles.container}>
       {loading && chats.length === 0 ? (
         <View style={styles.centerContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
       ) : (
@@ -224,16 +211,12 @@ const HomeScreen: React.FC = () => {
           }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 0.5, borderBottomColor: Colors.lightGray },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.primary, letterSpacing: 1 },
-  headerIcons: { flexDirection: 'row', alignItems: 'center' },
-  iconBtn: { marginLeft: 20 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { paddingHorizontal: 16, paddingBottom: 20 },
   chatItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },
