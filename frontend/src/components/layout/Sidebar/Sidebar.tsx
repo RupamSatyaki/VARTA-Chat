@@ -5,7 +5,8 @@ import {
   Dimensions, 
   Pressable,
   Platform,
-  Text
+  Text,
+  ScrollView
 } from 'react-native';
 import Animated, { 
   useSharedValue, 
@@ -20,6 +21,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import Header from './Header';
 import Profile from './Profile';
 import UserInfo from './UserInfo';
+import SettingsList from './SettingsList';
 import MenuItem from './MenuItem';
 import Dropdown from './Dropdown';
 
@@ -91,20 +93,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           />
         </View>
 
-        <Profile user={userData} />
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <Profile user={userData} />
 
-        <UserInfo user={userData} />
+          <UserInfo user={userData} />
 
-        <View style={styles.menuList}>
-          <MenuItem icon="notifications-outline" title="Notifications" />
-          <MenuItem icon="lock-closed-outline" title="Privacy" />
-          <MenuItem icon="color-palette-outline" title="Appearance" />
-          <MenuItem icon="help-circle-outline" title="Help" />
-        </View>
+          <SettingsList />
 
-        <View style={styles.footer}>
-          <Text style={styles.version}>VARTA v1.0.0</Text>
-        </View>
+          <View style={styles.footer}>
+            <Text style={styles.version}>VARTA v1.0.0</Text>
+          </View>
+        </ScrollView>
       </Animated.View>
     </>
   );
@@ -131,9 +130,8 @@ const styles = StyleSheet.create({
       web: { boxShadow: '2px 0 10px rgba(0,0,0,0.3)' }
     }),
   },
-  menuList: {
-    flex: 1,
-    paddingTop: 5,
+  scrollContent: {
+    paddingBottom: 20,
   },
   footer: {
     padding: 20,
