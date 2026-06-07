@@ -23,6 +23,7 @@ interface ChatState {
   chats: Chat[];
   messages: Record<string, Message[]>; // chatId -> messages[]
   typingStatus: Record<string, boolean>; // chatId -> isTyping
+  onlineUsers: Set<string>; // Set of userIds
   setChats: (chats: Chat[]) => void;
   setMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
@@ -33,6 +34,8 @@ interface ChatState {
   updateChatStatus: (chatId: string, messageId: string, status: string) => void;
   syncChatSeen: (chatId: string, receiverId: string, currentUserId: string) => void;
   setTyping: (chatId: string, isTyping: boolean) => void;
+  setOnlineUsers: (users: string[]) => void;
+  updateUserStatus: (userId: string, status: 'online' | 'offline') => void;
   clearChat: (chatId: string) => void;
 }
 
@@ -40,6 +43,7 @@ export const useChatStore = create<ChatState>((set) => ({
   chats: [],
   messages: {},
   typingStatus: {},
+  onlineUsers: new Set(),
 
   setChats: (chats) => set({ chats }),
   
@@ -47,6 +51,22 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({
       typingStatus: { ...state.typingStatus, [chatId]: isTyping }
     })),
+
+  setOnlineUsers: (users) =>
+    set(() => ({
+      onlineUsers: new Set(users)
+    })),
+
+  updateUserStatus: (userId, status) =>
+    set((state) => {
+      const newOnlineUsers = new Set(state.onlineUsers);
+      if (status === 'online') {
+        newOnlineUsers.add(userId);
+      } else {
+        newOnlineUsers.delete(userId);
+      }
+      return { onlineUsers: newOnlineUsers };
+    }),
 
   setMessages: (chatId, messages) => 
     set((state) => ({

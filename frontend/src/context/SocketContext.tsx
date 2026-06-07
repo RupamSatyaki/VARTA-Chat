@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { useAuthStore } from '../store/useAuthStore';
+import { useChatStore } from '../store/useChatStore';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -19,6 +20,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const { userData } = useAuthStore();
+  const { setOnlineUsers, updateUserStatus } = useChatStore();
 
   useEffect(() => {
     // If no user is logged in, disconnect existing socket and return
@@ -51,6 +53,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         newSocket.emit('setup', userData);
       });
 
+      // Presence Listeners
+      newSocket.on('get-online-users', (users: string[]) => {
+        console.log('👥 Initial online users:', users);
+        setOnlineUsers(users);
+      });
+
+      newSocket.on('user-status-changed', ({ userId, status }: any) => {
+        console.log(`👤 User ${userId} is now ${status}`);
+        updateUserStatus(userId, status);
+      });
+
       // Global delivery confirmation listener
       newSocket.on('message-received', (newMessage: any) => {
         console.log('📩 Message received globally, sending delivery confirmation');
@@ -74,10 +87,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     return () => {
-      // We don't necessarily want to disconnect on every re-render, 
-      // but if the component unmounts or userData changes to null, we should.
+      // Cleanup happens on userData change
     };
-  }, [userData]); // Re-run when userData changes (login/logout)
+  }, [userData, setOnlineUsers, updateUserStatus]); 
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>

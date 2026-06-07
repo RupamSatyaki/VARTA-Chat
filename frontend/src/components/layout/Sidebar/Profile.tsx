@@ -1,12 +1,16 @@
 import React from 'react';
 import { StyleSheet, View, Text, Image } from 'react-native';
 import { Colors } from '../../../theme/colors';
+import { useChatStore } from '../../../store/useChatStore';
 
 interface ProfileProps {
   user: any;
 }
 
 const Profile: React.FC<ProfileProps> = ({ user }) => {
+  const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const isOnline = user?._id ? onlineUsers.has(user._id) : false;
+
   return (
     <View style={styles.container}>
       <View style={styles.avatarWrapper}>
@@ -14,11 +18,16 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
           source={{ uri: user?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
           style={styles.avatar} 
         />
+        {isOnline && <View style={styles.onlineBadge} />}
       </View>
+      
       <View style={styles.info}>
         <Text style={styles.name}>{user?.name || 'VARTA User'}</Text>
-        <Text style={styles.number}>{user?.number}</Text>
-        {user?.username && <Text style={styles.username}>@{user.username}</Text>}
+        <View style={styles.statusContainer}>
+          <Text style={[styles.statusText, isOnline ? styles.onlineText : styles.offlineText]}>
+            {isOnline ? 'Online' : 'Offline'}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -26,7 +35,8 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    paddingVertical: 30,
+    paddingHorizontal: 20,
     alignItems: 'center',
     backgroundColor: Colors.surface,
   },
@@ -35,29 +45,47 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
     borderColor: Colors.primary,
+  },
+  onlineBadge: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#4ADE80',
+    borderWidth: 3,
+    borderColor: Colors.surface,
   },
   info: {
     alignItems: 'center',
   },
   name: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: Colors.text,
   },
-  number: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginTop: 4,
+  statusContainer: {
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
-  username: {
+  statusText: {
     fontSize: 14,
-    color: Colors.primary,
-    marginTop: 2,
+    fontWeight: '600',
+  },
+  onlineText: {
+    color: '#4ADE80',
+  },
+  offlineText: {
+    color: Colors.textSecondary,
   },
 });
 
