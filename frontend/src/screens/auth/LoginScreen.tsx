@@ -3,12 +3,12 @@ import {
   StyleSheet, 
   View, 
   Text, 
-  SafeAreaView, 
-  KeyboardAvoidingView, 
-  Platform, 
   ScrollView,
-  Alert 
+  Alert,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import CustomInput from '../../components/common/CustomInput';

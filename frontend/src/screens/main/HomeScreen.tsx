@@ -6,10 +6,10 @@ import {
   FlatList, 
   TouchableOpacity, 
   ActivityIndicator, 
-  SafeAreaView,
   StatusBar,
   Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';

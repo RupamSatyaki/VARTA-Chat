@@ -3,16 +3,16 @@ import {
   StyleSheet, 
   View, 
   Text, 
-  SafeAreaView, 
-  TextInput, 
-  TouchableOpacity, 
-  FlatList, 
-  Image, 
-  KeyboardAvoidingView, 
   Platform,
   StatusBar,
-  ActivityIndicator
+  ActivityIndicator,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  KeyboardAvoidingView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSocket } from '../../context/SocketContext';

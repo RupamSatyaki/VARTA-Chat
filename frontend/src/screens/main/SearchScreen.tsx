@@ -3,20 +3,20 @@ import {
   StyleSheet, 
   View, 
   Text, 
-  SafeAreaView, 
-  TextInput, 
-  TouchableOpacity, 
-  FlatList, 
-  StatusBar,
-  Platform,
   ActivityIndicator,
   Alert,
-  Image
+  Image,
+  TouchableOpacity,
+  StatusBar,
+  Platform,
+  TextInput,
+  FlatList
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
 
 interface User {
@@ -37,7 +37,7 @@ const SearchScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const { userData, userToken } = useAuthStore();
 
   useEffect(() => {
     fetchUsers();
@@ -47,11 +47,6 @@ const SearchScreen: React.FC = () => {
     try {
       setLoading(true);
       
-      const storedUserData = await AsyncStorage.getItem('userData');
-      if (storedUserData) {
-        setCurrentUser(JSON.parse(storedUserData));
-      }
-
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
       const response = await fetch(`${apiUrl}/users`);
       const data = await response.json();
@@ -70,7 +65,7 @@ const SearchScreen: React.FC = () => {
   };
 
   const filteredUsers = users.filter(user => {
-    if (currentUser && user._id === currentUser._id) return false;
+    if (userData && user._id === userData._id) return false;
     
     const query = searchQuery.toLowerCase();
     return (
@@ -83,36 +78,26 @@ const SearchScreen: React.FC = () => {
   const handleUserPress = async (user: User) => {
     console.log("handleUserPress called with user:", user);
     try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        // Handle case where token is not found, maybe navigate to Login
+      if (!userToken) {
         console.log("Token not found");
         return;
       }
 
-      console.log("Token found:", token);
-
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
-      console.log("API URL:", apiUrl);
-
       const response = await fetch(`${apiUrl}/chats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${userToken}`,
         },
         body: JSON.stringify({ userId: user._id }),
       });
 
-      console.log("API response:", response);
-
       const chat = await response.json();
 
       if (response.ok) {
-        console.log("Navigating to Chat screen with user:", user, "and chat:", chat);
-        navigation.navigate('Chat', { user, chat }); // Pass both user and chat
+        navigation.navigate('Chat', { user, chat });
       } else {
-        console.error("Failed to start chat:", chat);
         Alert.alert('Error', chat.message || 'Failed to start chat');
       }
     } catch (error) {
