@@ -65,10 +65,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const BANNER_IMAGE = 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=500&auto=format&fit=crop';
 
   return (
-    <>
+    <View style={StyleSheet.absoluteFill} pointerEvents={isOpen ? 'auto' : 'none'}>
       {/* Backdrop */}
       <Animated.View style={[styles.backdrop, backdropStyle]}>
-        <Pressable style={styles.flex1} onPress={onClose} />
+        <Pressable 
+          style={styles.flex1} 
+          onPress={onClose}
+          android_ripple={{ color: 'transparent' }}
+        />
       </Animated.View>
 
       {/* Drawer Content */}
@@ -117,7 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {/* Any other content can go here */}
         </ScrollView>
       </Animated.View>
-    </>
+    </View>
   );
 };
 
