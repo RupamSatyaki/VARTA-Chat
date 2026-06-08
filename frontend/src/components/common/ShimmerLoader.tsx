@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Animated, ViewStyle, DimensionValue } from 'react-native';
+import { StyleSheet, View, Animated, ViewStyle, DimensionValue, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../theme/colors';
 
@@ -23,7 +23,7 @@ const ShimmerLoader: React.FC<ShimmerLoaderProps> = ({
       Animated.timing(shimmerAnimatedValue, {
         toValue: 1,
         duration: 1500,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       })
     ).start();
   }, []);

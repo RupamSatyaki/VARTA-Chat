@@ -2,17 +2,16 @@ import React, { useState } from 'react';
 import { 
   StyleSheet, 
   View, 
-  Dimensions, 
-  Platform,
-  Text,
-  ScrollView,
+  Text, 
+  FlatList,
   StatusBar
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 import { useAuthStore } from '../../store/useAuthStore';
 
-// Modular Components from Sidebar
+// Modular Components
 import Header from '../../components/layout/Settings/Header';
 import Profile from '../../components/layout/Settings/Profile';
 import UserInfo from '../../components/layout/Settings/UserInfo';
@@ -31,45 +30,52 @@ const SettingsScreen: React.FC = () => {
     await logout();
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.surface} />
-      
-      <View style={{ zIndex: 10 }}>
-        <Header 
-          onClose={() => navigation.goBack()} 
-          onMorePress={() => setIsDropdownVisible(!isDropdownVisible)}
-          onEditPress={() => setIsEditModalVisible(true)}
-        />
-        
-        <Dropdown 
-          isVisible={isDropdownVisible} 
-          onLogout={handleLogout} 
-        />
-      </View>
-
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Profile user={userData} />
-
-        <UserInfo user={userData} />
-
-        <SettingsList />
-
+  // Define sections for FlatList
+  const sections = [
+    { id: 'profile', component: <Profile user={userData} /> },
+    { id: 'userInfo', component: <UserInfo user={userData} /> },
+    { id: 'settingsList', component: <SettingsList /> },
+    { 
+      id: 'footer', 
+      component: (
         <View style={styles.footer}>
           <Text style={styles.version}>VARTA v1.0.0</Text>
         </View>
-      </ScrollView>
+      ) 
+    },
+  ];
 
-      {/* Profile Edit Modal */}
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.surface} />
+      
+      <Header 
+        onClose={() => navigation.goBack()} 
+        onMorePress={() => setIsDropdownVisible(!isDropdownVisible)}
+        onEditPress={() => setIsEditModalVisible(true)}
+      />
+      
+      <FlatList
+        data={sections}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => item.component}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        overScrollMode="always"
+      />
+
+      {/* Overlays */}
+      <Dropdown 
+        isVisible={isDropdownVisible} 
+        onLogout={handleLogout} 
+      />
+
       <ProfileEditModal 
         isVisible={isEditModalVisible} 
         onClose={() => setIsEditModalVisible(false)} 
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -78,17 +84,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.surface,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
+  listContent: {
     paddingBottom: 40,
   },
   footer: {
-    padding: 20,
+    padding: 30,
     alignItems: 'center',
-    marginTop: 'auto',
   },
   version: {
     fontSize: 12,

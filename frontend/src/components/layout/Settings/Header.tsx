@@ -49,10 +49,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 15,
+    paddingVertical: 12,
     backgroundColor: Colors.surface,
-    zIndex: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   leftSection: {
     flexDirection: 'row',
