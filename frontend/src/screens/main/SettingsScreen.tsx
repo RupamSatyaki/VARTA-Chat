@@ -48,7 +48,11 @@ const SettingsScreen: React.FC = () => {
         />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         <Profile user={userData} />
 
         <UserInfo user={userData} />
@@ -74,12 +78,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.surface,
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingBottom: 20,
+    flexGrow: 1,
+    paddingBottom: 40,
   },
   footer: {
     padding: 20,
     alignItems: 'center',
+    marginTop: 'auto',
   },
   version: {
     fontSize: 12,
