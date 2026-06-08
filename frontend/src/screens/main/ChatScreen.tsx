@@ -239,6 +239,7 @@ const ChatScreen: React.FC = () => {
           </View>
           <TouchableOpacity style={styles.btn}><Ionicons name="videocam" size={22} color={Colors.primary} /></TouchableOpacity>
           <TouchableOpacity style={styles.btn}><Ionicons name="call" size={20} color={Colors.primary} /></TouchableOpacity>
+          <TouchableOpacity style={styles.btn}><Ionicons name="ellipsis-vertical" size={20} color={Colors.text} /></TouchableOpacity>
         </View>
       </View>
 
