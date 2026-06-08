@@ -7,6 +7,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import SearchScreen from '../screens/main/SearchScreen';
 import ChatScreen from '../screens/main/ChatScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
+import UserProfileScreen from '../screens/main/UserProfileScreen';
 import TabNavigator from './TabNavigator';
 import { Colors } from '../theme/colors';
 
@@ -50,6 +51,7 @@ const AppNavigator: React.FC = () => {
             />
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="UserProfile" component={UserProfileScreen} />
           </>
         )}
       </Stack.Navigator>

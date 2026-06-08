@@ -256,16 +256,27 @@ const ChatScreen: React.FC = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.btn}>
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
-          <Image source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} style={styles.avatar} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name} numberOfLines={1}>{user.name || user.number}</Text>
-            <Text style={[
-              styles.status, 
-              (isOtherUserTyping || (otherUserStatus?.status === 'online')) && { color: Colors.primary, fontWeight: 'bold' }
-            ]}>
-              {getStatusText()}
-            </Text>
-          </View>
+          
+          <TouchableOpacity 
+            style={styles.userInfoWrapper} 
+            onPress={() => navigation.navigate('UserProfile' as never, { user } as never)}
+            activeOpacity={0.7}
+          >
+            <Image 
+              source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+              style={styles.avatar} 
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name} numberOfLines={1}>{user.name || user.number}</Text>
+              <Text style={[
+                styles.status, 
+                (isOtherUserTyping || (otherUserStatus?.status === 'online')) && { color: Colors.primary, fontWeight: 'bold' }
+              ]}>
+                {getStatusText()}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.btn}><Ionicons name="videocam" size={22} color={Colors.primary} /></TouchableOpacity>
           <TouchableOpacity style={styles.btn}><Ionicons name="call" size={20} color={Colors.primary} /></TouchableOpacity>
           <TouchableOpacity style={styles.btn}><Ionicons name="ellipsis-vertical" size={20} color={Colors.text} /></TouchableOpacity>
@@ -347,6 +358,11 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     marginHorizontal: 8,
+  },
+  userInfoWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   name: {
     color: Colors.text,
