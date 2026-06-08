@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import HomeScreen from '../screens/main/HomeScreen';
 import Header from '../components/common/Header';
-import Sidebar from '../components/layout/Sidebar/Sidebar';
+import Sidebar from '../components/layout/Settings/Sidebar';
 import { Colors } from '../theme/colors';
 
 const Tab = createBottomTabNavigator();

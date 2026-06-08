@@ -13,12 +13,12 @@ import { Colors } from '../../theme/colors';
 import { useAuthStore } from '../../store/useAuthStore';
 
 // Modular Components from Sidebar
-import Header from '../../components/layout/Sidebar/Header';
-import Profile from '../../components/layout/Sidebar/Profile';
-import UserInfo from '../../components/layout/Sidebar/UserInfo';
-import SettingsList from '../../components/layout/Sidebar/SettingsList';
-import Dropdown from '../../components/layout/Sidebar/Dropdown';
-import ProfileEditModal from '../../components/layout/Sidebar/ProfileEditModal';
+import Header from '../../components/layout/Settings/Header';
+import Profile from '../../components/layout/Settings/Profile';
+import UserInfo from '../../components/layout/Settings/UserInfo';
+import SettingsList from '../../components/layout/Settings/SettingsList';
+import Dropdown from '../../components/layout/Settings/Dropdown';
+import ProfileEditModal from '../../components/layout/Settings/ProfileEditModal';
 
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation();
