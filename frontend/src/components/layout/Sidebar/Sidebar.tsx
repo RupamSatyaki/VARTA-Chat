@@ -16,6 +16,7 @@ import Animated, {
   withTiming, 
   Easing 
 } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../theme/colors';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useChatStore } from '../../../store/useChatStore';
@@ -79,6 +80,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             style={styles.banner}
           >
             <View style={styles.bannerOverlay}>
+              {/* Back Button */}
+              <View style={styles.headerTop}>
+                <Pressable 
+                  onPress={onClose}
+                  style={({ pressed }) => [
+                    styles.backButton,
+                    pressed && styles.pressed
+                  ]}
+                >
+                  <Ionicons name="arrow-back" size={24} color={Colors.white} />
+                </Pressable>
+              </View>
+
               <View style={styles.profileContent}>
                 <View style={styles.avatarContainer}>
                   <Image 
@@ -125,13 +139,26 @@ const styles = StyleSheet.create({
   },
   banner: {
     width: '100%',
-    height: 180,
+    height: 200, // Slightly increased height to accommodate back button
   },
   bannerOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between', // Changed to space-between for top/bottom content
     padding: 16,
+    paddingTop: Platform.OS === 'ios' ? 50 : 16, // Extra padding for iOS status bar
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8, // Align icon with the edge
+    borderRadius: 20,
+  },
+  pressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   profileContent: {
     alignItems: 'flex-start',
