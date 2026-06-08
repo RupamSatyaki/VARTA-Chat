@@ -11,7 +11,7 @@ const SettingsList: React.FC = () => {
     { icon: 'server-outline' as const, title: 'Data and Storage' },
     { icon: 'lock-closed-outline' as const, title: 'Privacy and Security' },
     { icon: 'folder-open-outline' as const, title: 'Chat Folders' },
-    { icon: 'devices-outline' as const, title: 'Active Sessions' },
+    { icon: 'desktop-outline' as const, title: 'Active Sessions' },
     { icon: 'language-outline' as const, title: 'Language' },
     { icon: 'happy-outline' as const, title: 'Stickers and Emojis' },
   ];
