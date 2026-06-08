@@ -27,12 +27,6 @@ const TabNavigator = () => {
         onMenuPress={() => setIsDrawerOpen(true)}
       />
 
-      {/* Floating Sidebar (Modular) */}
-      <Sidebar 
-        isOpen={isDrawerOpen} 
-        onClose={() => setIsDrawerOpen(false)} 
-      />
-
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
@@ -70,6 +64,12 @@ const TabNavigator = () => {
         <Tab.Screen name="Communities" component={HomeScreen} />
         <Tab.Screen name="Calls" component={HomeScreen} />
       </Tab.Navigator>
+
+      {/* Floating Sidebar (Modular) */}
+      <Sidebar 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)} 
+      />
     </SafeAreaView>
   );
 };
