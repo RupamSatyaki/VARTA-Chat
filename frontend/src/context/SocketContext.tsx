@@ -59,9 +59,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setOnlineUsers(users);
       });
 
-      newSocket.on('user-status-changed', ({ userId, status }: any) => {
+      newSocket.on('user-status-changed', ({ userId, status, lastSeen }: any) => {
         console.log(`👤 User ${userId} is now ${status}`);
-        updateUserStatus(userId, status);
+        updateUserStatus(userId, status, lastSeen);
       });
 
       // Global delivery confirmation listener

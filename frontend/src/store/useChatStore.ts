@@ -24,6 +24,7 @@ interface ChatState {
   messages: Record<string, Message[]>; // chatId -> messages[]
   typingStatus: Record<string, boolean>; // chatId -> isTyping
   onlineUsers: Set<string>; // Set of userIds
+  userStatuses: Record<string, { status: 'online' | 'offline', lastSeen?: string }>; // userId -> status data
   setChats: (chats: Chat[]) => void;
   setMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
@@ -35,7 +36,7 @@ interface ChatState {
   syncChatSeen: (chatId: string, receiverId: string, currentUserId: string) => void;
   setTyping: (chatId: string, isTyping: boolean) => void;
   setOnlineUsers: (users: string[]) => void;
-  updateUserStatus: (userId: string, status: 'online' | 'offline') => void;
+  updateUserStatus: (userId: string, status: 'online' | 'offline', lastSeen?: string) => void;
   clearChat: (chatId: string) => void;
 }
 
@@ -44,6 +45,7 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: {},
   typingStatus: {},
   onlineUsers: new Set(),
+  userStatuses: {},
 
   setChats: (chats) => set({ chats }),
   
@@ -53,19 +55,33 @@ export const useChatStore = create<ChatState>((set) => ({
     })),
 
   setOnlineUsers: (users) =>
-    set(() => ({
-      onlineUsers: new Set(users)
-    })),
+    set((state) => {
+      const newStatuses = { ...state.userStatuses };
+      users.forEach(id => {
+        newStatuses[id] = { status: 'online' };
+      });
+      return { 
+        onlineUsers: new Set(users),
+        userStatuses: newStatuses
+      };
+    }),
 
-  updateUserStatus: (userId, status) =>
+  updateUserStatus: (userId, status, lastSeen) =>
     set((state) => {
       const newOnlineUsers = new Set(state.onlineUsers);
+      const newStatuses = { ...state.userStatuses };
+      
       if (status === 'online') {
         newOnlineUsers.add(userId);
+        newStatuses[userId] = { status: 'online' };
       } else {
         newOnlineUsers.delete(userId);
+        newStatuses[userId] = { status: 'offline', lastSeen };
       }
-      return { onlineUsers: newOnlineUsers };
+      return { 
+        onlineUsers: newOnlineUsers,
+        userStatuses: newStatuses
+      };
     }),
 
   setMessages: (chatId, messages) => 

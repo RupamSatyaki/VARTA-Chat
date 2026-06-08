@@ -49,13 +49,39 @@ const ChatScreen: React.FC = () => {
     markMessagesAsSeen, 
     updateMessageId,
     typingStatus,
-    setTyping
+    setTyping,
+    userStatuses
   } = useChatStore();
   
   const chatMessages = messages[chat._id] || [];
   const isOtherUserTyping = typingStatus[chat._id] || false;
+  const otherUserStatus = userStatuses[user._id];
+
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const getStatusText = () => {
+    if (isOtherUserTyping) return 'typing...';
+    
+    if (otherUserStatus?.status === 'online') return 'Online';
+    
+    if (otherUserStatus?.lastSeen || user.lastSeen) {
+      const lastSeen = otherUserStatus?.lastSeen || user.lastSeen;
+      const date = new Date(lastSeen);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+
+      if (diffMins < 1) return 'last seen just now';
+      if (diffMins < 60) return `last seen ${diffMins}m ago`;
+      if (diffHours < 24) return `last seen ${diffHours}h ago`;
+      
+      return `last seen ${date.toLocaleDateString()}`;
+    }
+    
+    return isConnected ? 'Offline' : 'Connecting...';
+  };
 
   const fetchMessages = useCallback(async () => {
     if (!userData?._id || !user?._id) return;
@@ -233,8 +259,11 @@ const ChatScreen: React.FC = () => {
           <Image source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} style={styles.avatar} />
           <View style={{ flex: 1 }}>
             <Text style={styles.name} numberOfLines={1}>{user.name || user.number}</Text>
-            <Text style={[styles.status, isOtherUserTyping && { color: Colors.primary, fontWeight: 'bold' }]}>
-              {isOtherUserTyping ? 'typing...' : (isConnected ? 'Online' : 'Connecting...')}
+            <Text style={[
+              styles.status, 
+              (isOtherUserTyping || (otherUserStatus?.status === 'online')) && { color: Colors.primary, fontWeight: 'bold' }
+            ]}>
+              {getStatusText()}
             </Text>
           </View>
           <TouchableOpacity style={styles.btn}><Ionicons name="videocam" size={22} color={Colors.primary} /></TouchableOpacity>

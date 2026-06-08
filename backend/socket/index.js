@@ -1,5 +1,6 @@
 const { Server } = require('socket.io');
 const registerChatHandlers = require('./chatHandler');
+const User = require('../models/User');
 
 // Track online users: { userId: socketId }
 const onlineUsers = new Map();
@@ -19,19 +20,26 @@ const initSocket = (server) => {
     console.log(`📡 New client connected: ${socket.id}`);
 
     // Setup user session
-    socket.on('setup', (userData) => {
+    socket.on('setup', async (userData) => {
       if (!userData?._id) return;
       
       socket.join(userData._id);
       onlineUsers.set(userData._id, socket.id);
       
       console.log(`👤 User joined room: ${userData._id}`);
-      
-      // Notify everyone that this user is online
-      io.emit('user-status-changed', {
-        userId: userData._id,
-        status: 'online'
-      });
+
+      try {
+        // Update DB status
+        await User.findByIdAndUpdate(userData._id, { isOnline: true });
+        
+        // Notify everyone that this user is online
+        io.emit('user-status-changed', {
+          userId: userData._id,
+          status: 'online'
+        });
+      } catch (err) {
+        console.error('Error updating user status on setup:', err);
+      }
 
       // Send the current list of online users back to the connecting user
       socket.emit('get-online-users', Array.from(onlineUsers.keys()));
@@ -42,7 +50,7 @@ const initSocket = (server) => {
     // Register modular handlers
     registerChatHandlers(io, socket);
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       // Find the user ID associated with this socket
       let disconnectedUserId = null;
       for (const [userId, socketId] of onlineUsers.entries()) {
@@ -56,11 +64,23 @@ const initSocket = (server) => {
         onlineUsers.delete(disconnectedUserId);
         console.log(`📡 User offline: ${disconnectedUserId}`);
         
-        // Notify everyone that this user is offline
-        io.emit('user-status-changed', {
-          userId: disconnectedUserId,
-          status: 'offline'
-        });
+        const now = new Date();
+        try {
+          // Update DB status and lastSeen
+          await User.findByIdAndUpdate(disconnectedUserId, { 
+            isOnline: false, 
+            lastSeen: now 
+          });
+
+          // Notify everyone that this user is offline
+          io.emit('user-status-changed', {
+            userId: disconnectedUserId,
+            status: 'offline',
+            lastSeen: now
+          });
+        } catch (err) {
+          console.error('Error updating user status on disconnect:', err);
+        }
       }
       
       console.log('📡 Client disconnected');
