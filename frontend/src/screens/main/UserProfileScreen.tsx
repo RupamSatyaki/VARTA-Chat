@@ -44,6 +44,7 @@ const UserProfileScreen: React.FC = () => {
           <Image 
             source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
             style={styles.profilePic} 
+            resizeMode="cover"
           />
           <View style={styles.headerOverlay}>
             <SafeAreaView edges={['top']}>
@@ -122,7 +123,6 @@ const styles = StyleSheet.create({
   profilePic: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   headerOverlay: {
     ...StyleSheet.absoluteFillObject,
