@@ -145,11 +145,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: 20,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
     elevation: 5,
+    // Modern Box Shadow (SDK 56+)
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
   },
   header: {
     flexDirection: 'row',

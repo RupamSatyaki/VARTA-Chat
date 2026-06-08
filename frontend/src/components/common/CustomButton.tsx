@@ -37,11 +37,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     // Android Shadow
     elevation: 4,
-    // iOS Shadow
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    // Modern Shadow (SDK 56+)
+    boxShadow: `0px 4px 8px ${Colors.primary}4D`, // 4D is ~30% opacity in hex
   },
   buttonDisabled: {
     backgroundColor: Colors.gray,

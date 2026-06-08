@@ -136,20 +136,9 @@ const styles = StyleSheet.create({
     width: DRAWER_WIDTH,
     backgroundColor: Colors.surface,
     zIndex: 1000,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 2, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 16,
-      },
-      web: {
-        boxShadow: '2px 0 10px rgba(0,0,0,0.3)',
-      }
-    }),
+    elevation: 16, // Keep elevation for Android
+    // Modern Box Shadow (SDK 56+)
+    boxShadow: '2px 0px 10px rgba(0, 0, 0, 0.3)',
   },
   header: {
     flexDirection: 'row',

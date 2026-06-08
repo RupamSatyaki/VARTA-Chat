@@ -200,20 +200,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRightWidth: 0.5,
     borderRightColor: 'rgba(255, 255, 255, 0.05)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 2, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 24,
-      },
-      web: {
-        boxShadow: '5px 0 15px rgba(0,0,0,0.5)',
-      },
-    }),
+    elevation: 24, // Keep elevation for Android
+    // Modern Box Shadow (SDK 56+)
+    boxShadow: '2px 0px 10px rgba(0, 0, 0, 0.5)',
   },
   banner: {
     width: '100%',
@@ -270,17 +259,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.white,
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    // Modern Text Shadow (SDK 56+)
+    textShadow: '0px 1px 3px rgba(0, 0, 0, 0.4)',
   },
   userNumber: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    // Modern Text Shadow (SDK 56+)
+    textShadow: '0px 1px 2px rgba(0, 0, 0, 0.4)',
   },
   menuOptions: {
     paddingVertical: 10,

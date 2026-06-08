@@ -60,20 +60,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 4,
     minWidth: 150,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-      web: {
-        boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-      }
-    }),
+    elevation: 8, // Keep elevation for Android
+    // Modern Box Shadow (SDK 56+)
+    boxShadow: '0px 4px 15px rgba(0, 0, 0, 0.3)',
   },
   item: {
     flexDirection: 'row',

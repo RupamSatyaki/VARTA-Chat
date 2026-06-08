@@ -93,17 +93,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.white,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    // Modern Text Shadow (SDK 56+)
+    textShadow: '0px 1px 3px rgba(0, 0, 0, 0.5)',
   },
   number: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    // Modern Text Shadow (SDK 56+)
+    textShadow: '0px 1px 3px rgba(0, 0, 0, 0.5)',
   },
 });
 
