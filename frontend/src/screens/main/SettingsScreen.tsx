@@ -3,9 +3,9 @@ import {
   StyleSheet, 
   View, 
   Text, 
-  FlatList,
   StatusBar
 } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';

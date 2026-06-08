@@ -3,12 +3,12 @@ import {
   StyleSheet, 
   View, 
   Text, 
-  FlatList, 
   TouchableOpacity, 
   ActivityIndicator, 
   StatusBar,
   Image
 } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
