@@ -17,10 +17,15 @@ import Animated, {
   withTiming, 
   Easing 
 } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../theme/colors';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useChatStore } from '../../../store/useChatStore';
+
+// Components
+import MenuItem from '../Settings/MenuItem';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.8;
@@ -30,7 +35,12 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+type RootStackParamList = {
+  Settings: undefined;
+};
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const translateX = useSharedValue(-DRAWER_WIDTH);
   const backdropOpacity = useSharedValue(0);
   const { userData } = useAuthStore();
@@ -60,6 +70,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
   }));
+
+  const handleNavigation = (screen: string) => {
+    onClose();
+    if (screen === 'Settings') {
+      navigation.navigate('Settings');
+    }
+    // Add other screens here as they are implemented
+  };
 
   const DEFAULT_AVATAR = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
   const BANNER_IMAGE = 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=500&auto=format&fit=crop';
@@ -122,6 +140,41 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </View>
               </View>
             </ImageBackground>
+
+            {/* Menu Options */}
+            <View style={styles.menuOptions}>
+              <MenuItem 
+                icon="person-outline" 
+                title="Contacts" 
+                onPress={() => handleNavigation('Contacts')} 
+              />
+              <MenuItem 
+                icon="call-outline" 
+                title="Calls" 
+                onPress={() => handleNavigation('Calls')} 
+              />
+              <MenuItem 
+                icon="bookmark-outline" 
+                title="Saved Messages" 
+                onPress={() => handleNavigation('Saved')} 
+              />
+              <MenuItem 
+                icon="settings-outline" 
+                title="Settings" 
+                onPress={() => handleNavigation('Settings')} 
+              />
+              <View style={styles.divider} />
+              <MenuItem 
+                icon="person-add-outline" 
+                title="Invite Friends" 
+                onPress={() => handleNavigation('Invite')} 
+              />
+              <MenuItem 
+                icon="help-circle-outline" 
+                title="Help" 
+                onPress={() => handleNavigation('Help')} 
+              />
+            </View>
           </ScrollView>
         </Animated.View>
       </View>
@@ -228,6 +281,14 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.4)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  menuOptions: {
+    paddingVertical: 10,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginVertical: 10,
   },
 });
 
