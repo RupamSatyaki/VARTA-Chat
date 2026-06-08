@@ -303,29 +303,29 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Colors.surface,
     borderBottomWidth: 0.5,
-    borderBottomColor: Colors.lightGray,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
     zIndex: 100,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 5 : 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    marginHorizontal: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginHorizontal: 8,
   },
   name: {
     color: Colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   status: {
     color: Colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
   },
   chatArea: {
     flex: 1,
