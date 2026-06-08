@@ -134,8 +134,24 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
     zIndex: 1000,
+    borderRightWidth: 0.5,
+    borderRightColor: 'rgba(255, 255, 255, 0.05)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 2, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 24,
+      },
+      web: {
+        boxShadow: '5px 0 15px rgba(0,0,0,0.5)',
+      },
+    }),
   },
   banner: {
     width: '100%',
