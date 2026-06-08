@@ -18,6 +18,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import apiClient from '../../api/apiClient';
 import { Colors } from '../../theme/colors';
+import ShimmerLoader from '../../components/common/ShimmerLoader';
 
 type RootStackParamList = {
   Home: undefined;
@@ -25,6 +26,21 @@ type RootStackParamList = {
   Login: undefined;
   Search: undefined;
 };
+
+const ChatSkeleton = () => (
+  <View style={styles.chatItem}>
+    <ShimmerLoader width={55} height={55} borderRadius={27.5} />
+    <View style={styles.chatInfo}>
+      <View style={styles.chatHeader}>
+        <ShimmerLoader width="40%" height={16} borderRadius={4} />
+        <ShimmerLoader width="15%" height={12} borderRadius={4} />
+      </View>
+      <View style={styles.chatFooter}>
+        <ShimmerLoader width="70%" height={14} borderRadius={4} />
+      </View>
+    </View>
+  </View>
+);
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -210,7 +226,9 @@ const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {loading && chats.length === 0 ? (
-        <View style={styles.centerContainer}><ActivityIndicator size="large" color={Colors.primary} /></View>
+        <View style={styles.listContent}>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <ChatSkeleton key={i} />)}
+        </View>
       ) : (
         <FlatList
           data={chats}

@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../theme/colors';
+import ShimmerLoader from '../../components/common/ShimmerLoader';
 
 interface User {
   _id: string;
@@ -31,6 +32,16 @@ type RootStackParamList = {
   Search: undefined;
   Chat: { user: User; chat: any }; // Add chat parameter
 };
+
+const UserSkeleton = () => (
+  <View style={styles.userItem}>
+    <ShimmerLoader width={50} height={50} borderRadius={25} />
+    <View style={styles.userInfo}>
+      <ShimmerLoader width="50%" height={16} borderRadius={4} />
+      <ShimmerLoader width="30%" height={12} borderRadius={4} style={{ marginTop: 8 }} />
+    </View>
+  </View>
+);
 
 const SearchScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -160,9 +171,8 @@ const SearchScreen: React.FC = () => {
         </View>
 
         {loading && users.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Fetching users...</Text>
+          <View style={styles.listContent}>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <UserSkeleton key={i} />)}
           </View>
         ) : (
           <FlatList
