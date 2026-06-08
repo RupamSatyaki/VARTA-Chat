@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SearchScreen from '../screens/main/SearchScreen';
 import ChatScreen from '../screens/main/ChatScreen';
+import SettingsScreen from '../screens/main/SettingsScreen';
 import TabNavigator from './TabNavigator';
 import { Colors } from '../theme/colors';
 
@@ -48,6 +49,7 @@ const AppNavigator: React.FC = () => {
               }}
             />
             <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
           </>
         )}
       </Stack.Navigator>

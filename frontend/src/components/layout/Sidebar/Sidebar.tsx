@@ -14,6 +14,8 @@ import Animated, {
   withTiming, 
   Easing 
 } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Colors } from '../../../theme/colors';
 import { useAuthStore } from '../../../store/useAuthStore';
 
@@ -34,7 +36,12 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+type RootStackParamList = {
+  Settings: undefined;
+};
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const translateX = useSharedValue(-DRAWER_WIDTH);
@@ -73,6 +80,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     await logout();
   };
 
+  const handleSettingsPress = () => {
+    onClose();
+    navigation.navigate('Settings');
+  };
+
   return (
     <>
       {/* Backdrop */}
@@ -99,6 +111,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <Profile user={userData} />
 
           <UserInfo user={userData} />
+
+          <View style={styles.actionContainer}>
+            <MenuItem 
+              icon="settings-outline" 
+              title="Full Settings" 
+              onPress={handleSettingsPress}
+            />
+          </View>
 
           <SettingsList />
 
@@ -140,6 +160,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
+  },
+  actionContainer: {
+    marginHorizontal: 15,
+    marginVertical: 5,
+    backgroundColor: 'rgba(138, 43, 226, 0.1)',
+    borderRadius: 15,
   },
   footer: {
     padding: 20,
