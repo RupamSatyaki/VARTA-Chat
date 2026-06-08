@@ -37,7 +37,7 @@ const Dropdown: React.FC<DropdownProps> = ({ isVisible, onLogout }) => {
   if (!isVisible && opacity.value === 0) return null;
 
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
+    <View style={[styles.overlay, { pointerEvents: 'box-none' }]}>
       <Animated.View style={[styles.dropdown, animatedStyle]}>
         <TouchableOpacity style={styles.item} onPress={onLogout} activeOpacity={0.7}>
           <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
