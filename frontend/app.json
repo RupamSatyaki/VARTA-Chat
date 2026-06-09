@@ -10,6 +10,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.varta.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -24,6 +25,7 @@
       "predictiveBackGestureEnabled": false
     },
     "ios": {
+      "bundleIdentifier": "com.varta.app",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "VARTA needs access to your camera for video calls.",
