@@ -160,17 +160,32 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!callerInfo || !socket) return;
 
-      const stream = await mediaDevices.getUserMedia({
-        audio: true,
-        video: callType === 'video',
-      }) as MediaStream;
+      let stream: MediaStream | null = null;
+      
+      try {
+        // Try to get media, but don't crash if devices are missing
+        stream = await mediaDevices.getUserMedia({
+          audio: true,
+          video: callType === 'video',
+        }) as MediaStream;
 
-      if (Platform.OS === 'web') {
-        const url = Math.random().toString(36).substring(7);
-        (stream as any).toURL = () => url;
-        (stream as any)._url = url;
-        if (!(window as any)._webrtcStreams) (window as any)._webrtcStreams = {};
-        (window as any)._webrtcStreams[url] = stream;
+        // As requested: Default to muted and camera off when answering
+        stream.getTracks().forEach(track => {
+          track.enabled = false;
+        });
+        setIsMuted(true);
+        setIsCameraOff(true);
+
+        if (Platform.OS === 'web') {
+          const url = Math.random().toString(36).substring(7);
+          (stream as any).toURL = () => url;
+          (stream as any)._url = url;
+          if (!(window as any)._webrtcStreams) (window as any)._webrtcStreams = {};
+          (window as any)._webrtcStreams[url] = stream;
+        }
+      } catch (mediaErr) {
+        console.warn('Local media devices not found or accessible:', mediaErr);
+        // We proceed without a local stream so the user can still see/hear the caller
       }
 
       setLocalStream(stream);
@@ -178,7 +193,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsReceivingCall(false);
 
       const pc = setupPeerConnection(callerInfo.from);
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      
+      // If we have a local stream, add its tracks to the peer connection
+      if (stream) {
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      }
 
       await pc.setRemoteDescription(new RTCSessionDescription(callerInfo.signalData));
       const answer = await pc.createAnswer();
