@@ -285,6 +285,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     paddingVertical: 10,
+    marginTop: 10, // Added more space from the top
     marginBottom: 10,
   },
   sectionTitleSmall: {
