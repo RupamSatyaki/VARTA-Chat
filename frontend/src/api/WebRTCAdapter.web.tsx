@@ -17,8 +17,10 @@ export const RTCView = ({ streamURL, style, objectFit }: any) => {
       const stream = (window as any)._webrtcStreams?.[streamURL];
       if (stream) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.warn('Autoplay prevented:', e));
       } else if (typeof streamURL === 'string' && streamURL.startsWith('blob:')) {
         videoRef.current.src = streamURL;
+        videoRef.current.play().catch(e => console.warn('Autoplay prevented:', e));
       }
     }
   }, [streamURL]);
@@ -26,6 +28,7 @@ export const RTCView = ({ streamURL, style, objectFit }: any) => {
   return (
     <div style={{ ...style, overflow: 'hidden' }}>
       <video
+        key={streamURL}
         ref={videoRef}
         autoPlay
         playsInline

@@ -31,18 +31,21 @@ const CallModal: React.FC = () => {
     toggleCamera,
     switchCamera,
     isMuted,
-    isCameraOff
+    isCameraOff,
+    isRemoteCameraOff
   } = useCall();
 
   if (!isCalling && !isReceivingCall && !callAccepted) return null;
+
+  const showRemoteVideo = callAccepted && remoteStream && callType === 'video' && !isRemoteCameraOff;
 
   return (
     <Modal visible={true} animationType="slide">
       <View style={styles.container}>
         {/* Remote Stream (Full Screen) */}
-        {callAccepted && remoteStream && callType === 'video' ? (
+        {showRemoteVideo ? (
           <RTCView
-            streamURL={remoteStream.toURL()}
+            streamURL={remoteStream!.toURL()}
             style={styles.remoteVideo}
             objectFit="cover"
           />
@@ -54,21 +57,30 @@ const CallModal: React.FC = () => {
             />
             <Text style={styles.name}>{callerInfo?.name || callerInfo?.fromName || 'User'}</Text>
             <Text style={styles.status}>
-              {isCalling ? 'Calling...' : isReceivingCall ? 'Incoming Call...' : 'Connected'}
+              {isCalling ? 'Calling...' : isReceivingCall ? 'Incoming Call...' : isRemoteCameraOff ? 'Camera is off' : 'Connected'}
             </Text>
           </View>
         )}
 
         {/* Local Stream (Small Window) */}
-        {callAccepted && localStream && callType === 'video' && !isCameraOff && (
+        {callAccepted && localStream && callType === 'video' ? (
           <View style={styles.localVideoContainer}>
-            <RTCView
-              streamURL={localStream.toURL()}
-              style={styles.localVideo}
-              objectFit="cover"
-            />
+            {!isCameraOff ? (
+              <RTCView
+                streamURL={localStream.toURL()}
+                style={styles.localVideo}
+                objectFit="cover"
+              />
+            ) : (
+              <View style={styles.localPlaceholder}>
+                <Image 
+                  source={{ uri: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+                  style={styles.smallAvatar} 
+                />
+              </View>
+            )}
           </View>
-        )}
+        ) : null}
 
         {/* Call Controls */}
         <View style={styles.controlsContainer}>
@@ -169,6 +181,19 @@ const styles = StyleSheet.create({
   },
   localVideo: {
     flex: 1,
+  },
+  localPlaceholder: {
+    flex: 1,
+    backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  smallAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: Colors.primary,
   },
   controlsContainer: {
     position: 'absolute',

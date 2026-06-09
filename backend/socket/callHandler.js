@@ -39,10 +39,22 @@ module.exports = (io, socket) => {
     socket.to(to).emit('call-ended');
   };
 
+  // Update media state (mic/camera toggle)
+  const updateMediaState = ({ to, isMuted, isCameraOff }) => {
+    socket.to(to).emit('remote-media-state-updated', { isMuted, isCameraOff });
+  };
+
+  // Request media state from peer
+  const requestMediaState = ({ to }) => {
+    socket.to(to).emit('request-remote-media-state');
+  };
+
   // Register events
   socket.on('call-user', callUser);
   socket.on('answer-call', answerCall);
   socket.on('reject-call', rejectCall);
   socket.on('ice-candidate', iceCandidate);
   socket.on('end-call', endCall);
+  socket.on('update-media-state', updateMediaState);
+  socket.on('request-media-state', requestMediaState);
 };

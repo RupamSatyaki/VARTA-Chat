@@ -21,6 +21,9 @@ interface CallContextType {
   switchCamera: () => void;
   isMuted: boolean;
   isCameraOff: boolean;
+  isRemoteMuted: boolean;
+  isRemoteCameraOff: boolean;
+  renderTrigger: number;
 }
 
 const CallContext = createContext<CallContextType | null>(null);
@@ -44,9 +47,39 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [callType, setCallType] = useState<'video' | 'audio'>('video');
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+  const [isRemoteMuted, setIsRemoteMuted] = useState(false);
+  const [isRemoteCameraOff, setIsRemoteCameraOff] = useState(false);
+  const [renderTrigger, setRenderTrigger] = useState(0);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const targetUserIdRef = useRef<string | null>(null);
+  const candidateQueue = useRef<any[]>([]);
+
+  const getMediaStream = async (type: 'video' | 'audio') => {
+    try {
+      return await mediaDevices.getUserMedia({
+        audio: true,
+        video: type === 'video',
+      }) as MediaStream;
+    } catch (err) {
+      console.warn('Initial getUserMedia failed, trying fallback...', err);
+      try {
+        return await mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        }) as MediaStream;
+      } catch (err2) {
+        try {
+          return await mediaDevices.getUserMedia({
+            audio: false,
+            video: type === 'video',
+          }) as MediaStream;
+        } catch (err3) {
+          return null;
+        }
+      }
+    }
+  };
 
   const configuration = {
     iceServers: [
@@ -81,6 +114,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     targetUserIdRef.current = null;
     setIsMuted(false);
     setIsCameraOff(false);
+    setIsRemoteMuted(false);
+    setIsRemoteCameraOff(false);
+    setRenderTrigger(0);
   }, [localStream, remoteStream]);
 
   const setupPeerConnection = useCallback((targetId: string) => {
@@ -93,16 +129,28 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     pc.ontrack = (event: any) => {
-      if (event.streams && event.streams[0]) {
-        const stream = event.streams[0];
-        if (Platform.OS === 'web') {
-          const url = Math.random().toString(36).substring(7);
-          (stream as any).toURL = () => url;
-          (stream as any)._url = url;
-          if (!(window as any)._webrtcStreams) (window as any)._webrtcStreams = {};
-          (window as any)._webrtcStreams[url] = stream;
-        }
-        setRemoteStream(stream);
+      console.log('📡 Remote track received:', event.track.kind);
+      // Construct stream if browser doesn't provide it
+      const stream = (event.streams && event.streams.length > 0) ? event.streams[0] : new MediaStream([event.track]);
+      
+      if (Platform.OS === 'web') {
+        // Generate a new URL for every new track to force RTCView to re-mount/update
+        const url = Math.random().toString(36).substring(7);
+        (stream as any).toURL = () => url;
+        (stream as any)._url = url;
+        if (!(window as any)._webrtcStreams) (window as any)._webrtcStreams = {};
+        (window as any)._webrtcStreams[url] = stream;
+      }
+      
+      setRemoteStream(stream);
+      setRenderTrigger(prev => prev + 1); // Force React to re-render context consumers
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log('📡 Connection state:', pc.connectionState);
+      if (pc.connectionState === 'connected' && socket) {
+        // Request remote media state once connected to ensure we are in sync
+        socket.emit('request-media-state', { to: targetId });
       }
     };
 
@@ -115,14 +163,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallType(type);
       setIsCalling(true);
       targetUserIdRef.current = targetUserId;
-      setCallerInfo({ name: targetUserName, profilePic: targetUserPic });
+      setCallerInfo({ name: targetUserName, profilePic: targetUserPic, from: targetUserId });
 
-      const stream = await mediaDevices.getUserMedia({
-        audio: true,
-        video: type === 'video',
-      }) as MediaStream;
+      const stream = await getMediaStream(type);
 
-      if (Platform.OS === 'web') {
+      if (stream && Platform.OS === 'web') {
         const url = Math.random().toString(36).substring(7);
         (stream as any).toURL = () => url;
         (stream as any)._url = url;
@@ -133,7 +178,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLocalStream(stream);
 
       const pc = setupPeerConnection(targetUserId);
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      if (stream) {
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      }
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -146,6 +193,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           fromName: userData.name,
           fromPic: userData.profilePic,
           type
+        });
+
+        // Also emit our current media state
+        socket.emit('update-media-state', {
+          to: targetUserId,
+          isMuted,
+          isCameraOff
         });
       }
     } catch (err: any) {
@@ -160,15 +214,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!callerInfo || !socket) return;
 
-      let stream: MediaStream | null = null;
+      const stream = await getMediaStream(callType);
       
-      try {
-        // Try to get media, but don't crash if devices are missing
-        stream = await mediaDevices.getUserMedia({
-          audio: true,
-          video: callType === 'video',
-        }) as MediaStream;
-
+      if (stream) {
         // As requested: Default to muted and camera off when answering
         stream.getTracks().forEach(track => {
           track.enabled = false;
@@ -183,9 +231,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!(window as any)._webrtcStreams) (window as any)._webrtcStreams = {};
           (window as any)._webrtcStreams[url] = stream;
         }
-      } catch (mediaErr) {
-        console.warn('Local media devices not found or accessible:', mediaErr);
-        // We proceed without a local stream so the user can still see/hear the caller
       }
 
       setLocalStream(stream);
@@ -200,12 +245,30 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await pc.setRemoteDescription(new RTCSessionDescription(callerInfo.signalData));
+      
+      // Process any queued candidates
+      while (candidateQueue.current.length > 0) {
+        const candidate = candidateQueue.current.shift();
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error('Error adding queued ICE candidate', e);
+        }
+      }
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
       socket.emit('answer-call', {
         to: callerInfo.from,
         signalData: answer
+      });
+
+      // Notify caller about our initial media state (muted/cam-off)
+      socket.emit('update-media-state', {
+        to: callerInfo.from,
+        isMuted: true,
+        isCameraOff: true
       });
     } catch (err) {
       console.error('Failed to answer call:', err);
@@ -230,19 +293,31 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleMute = () => {
     if (localStream) {
+      const newState = !isMuted;
       localStream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
+        track.enabled = !newState;
       });
-      setIsMuted(!isMuted);
+      setIsMuted(newState);
+      
+      const targetId = targetUserIdRef.current || (callerInfo && callerInfo.from);
+      if (socket && targetId) {
+        socket.emit('update-media-state', { to: targetId, isMuted: newState, isCameraOff });
+      }
     }
   };
 
   const toggleCamera = () => {
     if (localStream && callType === 'video') {
+      const newState = !isCameraOff;
       localStream.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
+        track.enabled = !newState;
       });
-      setIsCameraOff(!isCameraOff);
+      setIsCameraOff(newState);
+
+      const targetId = targetUserIdRef.current || (callerInfo && callerInfo.from);
+      if (socket && targetId) {
+        socket.emit('update-media-state', { to: targetId, isMuted, isCameraOff: newState });
+      }
     }
   };
 
@@ -283,7 +358,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.on('ice-candidate', async (candidate) => {
       if (pcRef.current) {
         try {
-          await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+          if (pcRef.current.remoteDescription) {
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+          } else {
+            // Queue candidate if remote description isn't set yet
+            candidateQueue.current.push(candidate);
+          }
         } catch (err) {
           console.error('Error adding ICE candidate:', err);
         }
@@ -295,12 +375,26 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cleanup();
     });
 
+    socket.on('remote-media-state-updated', ({ isMuted, isCameraOff }) => {
+      setIsRemoteMuted(isMuted);
+      setIsRemoteCameraOff(isCameraOff);
+    });
+
+    socket.on('request-remote-media-state', () => {
+      const targetId = targetUserIdRef.current || (callerInfo && callerInfo.from);
+      if (socket && targetId) {
+        socket.emit('update-media-state', { to: targetId, isMuted, isCameraOff });
+      }
+    });
+
     return () => {
       socket.off('incoming-call');
       socket.off('call-accepted');
       socket.off('call-rejected');
       socket.off('ice-candidate');
       socket.off('call-ended');
+      socket.off('remote-media-state-updated');
+      socket.off('request-remote-media-state');
     };
   }, [socket, cleanup]);
 
@@ -321,7 +415,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toggleCamera,
       switchCamera,
       isMuted,
-      isCameraOff
+      isCameraOff,
+      isRemoteMuted,
+      isRemoteCameraOff
     }}>
       {children}
     </CallContext.Provider>
