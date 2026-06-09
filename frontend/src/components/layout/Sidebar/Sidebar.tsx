@@ -75,6 +75,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     onClose();
     if (screen === 'Settings') {
       navigation.navigate('Settings');
+    } else if (screen === 'CreateGroup') {
+      navigation.navigate('CreateGroup' as never);
     }
     // Add other screens here as they are implemented
   };
@@ -143,6 +145,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
             {/* Menu Options */}
             <View style={styles.menuOptions}>
+              <MenuItem 
+                icon="people-outline" 
+                title="New Group" 
+                onPress={() => handleNavigation('CreateGroup')} 
+              />
               <MenuItem 
                 icon="person-outline" 
                 title="Contacts" 

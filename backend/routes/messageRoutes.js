@@ -3,8 +3,13 @@ const router = express.Router();
 const messageController = require('../controllers/messageController');
 const authMiddleware = require('../middleware/authMiddleware');
 
+// @route   GET /api/messages/:chatId
+// @desc    Get all messages for a specific chat
+// @access  Private
+router.get('/:chatId', authMiddleware, messageController.getChatMessages);
+
 // @route   GET /api/messages/:senderId/:receiverId
-// @desc    Get all messages for a chat
+// @desc    Get all messages between two users (Legacy)
 // @access  Private
 router.get('/:senderId/:receiverId', authMiddleware, messageController.getMessages);
 

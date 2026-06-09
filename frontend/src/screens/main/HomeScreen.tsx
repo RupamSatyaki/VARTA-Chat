@@ -166,10 +166,19 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleChatPress = (chat: any) => {
-    const otherUser = chat.users.find((u: any) => u._id !== userData?._id);
-    if (otherUser) {
+    if (chat.isGroupChat) {
       syncChatSeen(chat._id, userData?._id || '', userData?._id || '');
-      navigation.navigate('Chat', { user: otherUser, chat });
+      // For group chat, we pass a dummy user object representing the group
+      navigation.navigate('Chat', { 
+        user: { name: chat.chatName, isGroup: true, profilePic: null, _id: chat._id }, 
+        chat 
+      });
+    } else {
+      const otherUser = chat.users.find((u: any) => u._id !== userData?._id);
+      if (otherUser) {
+        syncChatSeen(chat._id, userData?._id || '', userData?._id || '');
+        navigation.navigate('Chat', { user: otherUser, chat });
+      }
     }
   };
 
@@ -178,6 +187,14 @@ const HomeScreen: React.FC = () => {
     const isLatestFromMe = latestMsg && isMe(latestMsg.sender);
     const hasUnread = (item.unreadCount || 0) > 0;
     const isTyping = typingStatus[item._id] || false;
+
+    const getChatAvatar = () => {
+      if (item.isGroupChat) {
+        return 'https://cdn-icons-png.flaticon.com/512/615/615075.png'; // Group icon
+      }
+      const otherUser = item.users.find((u: any) => u._id !== userData?._id);
+      return otherUser?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+    };
 
     const renderStatusIcon = () => {
       if (!isLatestFromMe || !latestMsg || isTyping) return null;
@@ -192,7 +209,7 @@ const HomeScreen: React.FC = () => {
     return (
       <TouchableOpacity style={styles.chatItem} activeOpacity={0.7} onPress={() => handleChatPress(item)}>
         <Image 
-          source={{ uri: item.users.find((u: any) => u._id !== userData?._id)?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+          source={{ uri: getChatAvatar() }} 
           style={styles.avatar} 
         />
         <View style={styles.chatInfo}>
@@ -213,7 +230,9 @@ const HomeScreen: React.FC = () => {
                 ]} 
                 numberOfLines={1}
               >
-                {isTyping ? 'typing...' : (latestMsg ? latestMsg.content : 'No messages yet')}
+                {isTyping ? 'typing...' : (latestMsg ? 
+                  `${item.isGroupChat && !isLatestFromMe ? (latestMsg.sender?.name || 'User') + ': ' : ''}${latestMsg.content}` 
+                  : 'No messages yet')}
               </Text>
             </View>
             {hasUnread && <View style={styles.unreadBadge}><Text style={styles.unreadText}>{item.unreadCount}</Text></View>}

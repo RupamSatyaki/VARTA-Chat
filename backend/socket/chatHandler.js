@@ -15,21 +15,26 @@ module.exports = (io, socket) => {
 
   // Handle new message
   const newMessage = async (newMessageReceived) => {
-    const { senderId, receiverId, content, type, chatId } = newMessageReceived;
+    const { senderId, content, type, chatId } = newMessageReceived;
 
-    if (!senderId || !receiverId || !content || !chatId) {
+    if (!senderId || !content || !chatId) {
       return console.log('❌ Invalid message data received');
     }
 
     try {
+      // Fetch the chat to get users
+      const chat = await Chat.findById(chatId).populate("users", "_id");
+      if (!chat) return console.log('❌ Chat not found');
+
       // Save message to database
       const message = await Message.create({
         sender: senderId,
-        receiver: receiverId,
         content: content,
         type: type || 'text',
         status: 'sent',
         chat: chatId,
+        // For 1-on-1, receiver is the other user. For group, it can be null.
+        receiver: chat.isGroupChat ? null : chat.users.find(u => u._id.toString() !== senderId.toString())?._id
       });
 
       console.log(`💾 Message saved to DB: ${message._id}`);
@@ -43,17 +48,21 @@ module.exports = (io, socket) => {
       // Get sender details to include in the broadcast
       const sender = await User.findById(senderId);
 
-      // Broadcast to the receiver's room
-      socket.in(receiverId).emit('message-received', {
-        ...newMessageReceived,
-        _id: message._id,
-        createdAt: message.createdAt,
-        senderName: sender?.name,
-        senderNumber: sender?.number,
-        status: 'sent'
+      // Broadcast to all users in the chat except the sender
+      chat.users.forEach(user => {
+        if (user._id.toString() === senderId.toString()) return;
+
+        socket.in(user._id.toString()).emit('message-received', {
+          ...newMessageReceived,
+          _id: message._id,
+          createdAt: message.createdAt,
+          senderName: sender?.name,
+          senderNumber: sender?.number,
+          status: 'sent'
+        });
       });
       
-      console.log(`📩 Message relayed to: ${receiverId}`);
+      console.log(`📩 Message relayed to users in chat: ${chatId}`);
     } catch (error) {
       console.error('❌ Error saving message:', error.message);
     }
@@ -114,11 +123,19 @@ module.exports = (io, socket) => {
 
   // Handle typing status
   const typing = ({ chatId, receiverId }) => {
-    socket.in(receiverId).emit('typing', { chatId, userId: socket.id });
+    if (receiverId) {
+      socket.in(receiverId).emit('typing', { chatId, userId: socket.id });
+    } else {
+      socket.to(chatId).emit('typing', { chatId, userId: socket.id });
+    }
   };
 
   const stopTyping = ({ chatId, receiverId }) => {
-    socket.in(receiverId).emit('stop-typing', { chatId, userId: socket.id });
+    if (receiverId) {
+      socket.in(receiverId).emit('stop-typing', { chatId, userId: socket.id });
+    } else {
+      socket.to(chatId).emit('stop-typing', { chatId, userId: socket.id });
+    }
   };
 
   // Register events

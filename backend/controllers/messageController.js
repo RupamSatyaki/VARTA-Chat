@@ -75,7 +75,35 @@ const getMessages = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get messages for a specific chat
+ * @route   GET /api/messages/:chatId
+ * @access  Private
+ */
+const getChatMessages = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    const messages = await Message.find({ chat: chatId })
+      .populate("sender", "name profilePic number")
+      .sort({ createdAt: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: messages.length,
+      data: messages
+    });
+  } catch (error) {
+    console.error(`❌ Error in getChatMessages: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
+  }
+};
+
 module.exports = {
   sendMessage,
-  getMessages
+  getMessages,
+  getChatMessages
 };

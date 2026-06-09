@@ -84,17 +84,18 @@ const ChatScreen: React.FC = () => {
   };
 
   const fetchMessages = useCallback(async () => {
-    if (!userData?._id || !user?._id) return;
+    if (!chat?._id) return;
     try {
       setLoading(true);
-      const response = await apiClient.get(`/messages/${userData._id}/${user._id}`);
+      const response = await apiClient.get(`/messages/${chat._id}`);
       const data = response.data;
 
       if (data.success) {
         const formattedMessages = data.data.map((m: any) => ({
           id: m._id,
           content: m.content,
-          senderId: m.sender,
+          senderId: typeof m.sender === 'string' ? m.sender : m.sender._id,
+          senderName: typeof m.sender === 'object' ? m.sender.name : null,
           receiverId: m.receiver,
           status: m.status,
           timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -102,7 +103,7 @@ const ChatScreen: React.FC = () => {
         setMessages(chat._id, formattedMessages);
         
         // Mark these messages as seen in the backend
-        if (socket && userData) {
+        if (socket && userData && !chat.isGroupChat) {
           socket.emit('message-seen', {
             chatId: chat._id,
             senderId: user._id, 
@@ -115,7 +116,7 @@ const ChatScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [chat._id, user._id, userData?._id, socket, setMessages]);
+  }, [chat._id, user._id, userData?._id, socket, setMessages, chat.isGroupChat]);
 
   useEffect(() => {
     fetchMessages();
@@ -129,17 +130,20 @@ const ChatScreen: React.FC = () => {
             id: newMessage._id || Date.now().toString(),
             content: newMessage.content,
             senderId: newMessage.senderId,
+            senderName: newMessage.senderName,
             receiverId: newMessage.receiverId,
-            status: 'seen', 
+            status: chat.isGroupChat ? 'sent' : 'seen', 
             timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
           addMessage(chat._id, formattedMsg);
 
-          socket.emit('message-seen', {
-            chatId: chat._id,
-            senderId: newMessage.senderId,
-            receiverId: userData?._id
-          });
+          if (!chat.isGroupChat) {
+            socket.emit('message-seen', {
+              chatId: chat._id,
+              senderId: newMessage.senderId,
+              receiverId: userData?._id
+            });
+          }
         }
       });
 
@@ -159,11 +163,11 @@ const ChatScreen: React.FC = () => {
         }
       });
 
-      socket.on('typing', ({ chatId }: any) => {
+      socket.on('typing', ({ chatId, userId }: any) => {
         if (chatId === chat._id) setTyping(chatId, true);
       });
 
-      socket.on('stop-typing', ({ chatId }: any) => {
+      socket.on('stop-typing', ({ chatId, userId }: any) => {
         if (chatId === chat._id) setTyping(chatId, false);
       });
     }
@@ -178,18 +182,24 @@ const ChatScreen: React.FC = () => {
         socket.off('stop-typing');
       }
     };
-  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, markMessagesAsSeen, updateMessageId, setTyping]);
+  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, markMessagesAsSeen, updateMessageId, setTyping, chat.isGroupChat]);
 
   const handleTextChange = (text: string) => {
     setMessage(text);
     if (!socket || !isConnected) return;
 
-    socket.emit('typing', { chatId: chat._id, receiverId: user._id });
+    socket.emit('typing', { 
+      chatId: chat._id, 
+      receiverId: chat.isGroupChat ? null : user._id 
+    });
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('stop-typing', { chatId: chat._id, receiverId: user._id });
+      socket.emit('stop-typing', { 
+        chatId: chat._id, 
+        receiverId: chat.isGroupChat ? null : user._id 
+      });
     }, 2000);
   };
 
@@ -198,14 +208,17 @@ const ChatScreen: React.FC = () => {
     
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
-      socket.emit('stop-typing', { chatId: chat._id, receiverId: user._id });
+      socket.emit('stop-typing', { 
+        chatId: chat._id, 
+        receiverId: chat.isGroupChat ? null : user._id 
+      });
     }
 
     const newMessage: Message = {
       id: Date.now().toString(),
       content: message,
       senderId: userData._id,
-      receiverId: user._id,
+      receiverId: chat.isGroupChat ? null : user._id,
       status: 'sent',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
@@ -218,7 +231,7 @@ const ChatScreen: React.FC = () => {
     const isMe = item.senderId === userData?._id;
     
     const renderStatusIcon = () => {
-      if (!isMe) return null;
+      if (!isMe || chat.isGroupChat) return null;
       
       switch (item.status) {
         case 'seen':
@@ -235,6 +248,9 @@ const ChatScreen: React.FC = () => {
     return (
       <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
+          {!isMe && chat.isGroupChat && item.senderName && (
+            <Text style={styles.senderName}>{item.senderName}</Text>
+          )}
           <Text style={styles.messageText}>{item.content}</Text>
           <View style={styles.messageFooter}>
             <Text style={styles.timestamp}>{item.timestamp}</Text>
@@ -243,6 +259,14 @@ const ChatScreen: React.FC = () => {
         </View>
       </View>
     );
+  };
+
+  const handleHeaderPress = () => {
+    if (chat.isGroupChat) {
+      navigation.navigate('GroupInfo' as never, { chat } as never);
+    } else {
+      navigation.navigate('UserProfile' as never, { user } as never);
+    }
   };
 
   return (
@@ -258,20 +282,20 @@ const ChatScreen: React.FC = () => {
           
           <TouchableOpacity 
             style={styles.userInfoWrapper} 
-            onPress={() => navigation.navigate('UserProfile' as never, { user } as never)}
+            onPress={handleHeaderPress}
             activeOpacity={0.7}
           >
             <Image 
-              source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+              source={{ uri: chat.isGroupChat ? 'https://cdn-icons-png.flaticon.com/512/615/615075.png' : (user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png') }} 
               style={styles.avatar} 
             />
             <View style={{ flex: 1 }}>
-              <Text style={styles.name} numberOfLines={1}>{user.name || user.number}</Text>
+              <Text style={styles.name} numberOfLines={1}>{chat.isGroupChat ? chat.chatName : (user.name || user.number)}</Text>
               <Text style={[
                 styles.status, 
                 (isOtherUserTyping || (otherUserStatus?.status === 'online')) && { color: Colors.primary, fontWeight: 'bold' }
               ]}>
-                {getStatusText()}
+                {chat.isGroupChat ? `${chat.users?.length || 0} members` : getStatusText()}
               </Text>
             </View>
           </TouchableOpacity>
@@ -415,6 +439,12 @@ const styles = StyleSheet.create({
   messageText: {
     color: Colors.white,
     fontSize: 15,
+  },
+  senderName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginBottom: 2,
   },
   messageFooter: {
     flexDirection: 'row',

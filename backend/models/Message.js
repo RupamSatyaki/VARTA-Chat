@@ -9,7 +9,7 @@ const messageSchema = new mongoose.Schema({
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Changed to false for Group Chat
   },
   chat: { // New field
     type: mongoose.Schema.Types.ObjectId,
