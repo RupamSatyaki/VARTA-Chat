@@ -15,7 +15,7 @@ module.exports = (io, socket) => {
 
   // Handle new message
   const newMessage = async (newMessageReceived) => {
-    const { senderId, content, type, chatId } = newMessageReceived;
+    const { senderId, content, type, chatId, replyTo } = newMessageReceived;
 
     if (!senderId || !content || !chatId) {
       return console.log('❌ Invalid message data received');
@@ -33,6 +33,7 @@ module.exports = (io, socket) => {
         type: type || 'text',
         status: 'sent',
         chat: chatId,
+        replyTo: replyTo || null,
         // For 1-on-1, receiver is the other user. For group, it can be null.
         receiver: chat.isGroupChat ? null : chat.users.find(u => u._id.toString() !== senderId.toString())?._id,
         readBy: [senderId] // Sender has obviously read their own message
@@ -48,6 +49,16 @@ module.exports = (io, socket) => {
 
       // Get sender details to include in the broadcast
       const sender = await User.findById(senderId);
+      
+      // Populate replyTo if it exists
+      let populatedMessage = message;
+      if (replyTo) {
+        populatedMessage = await Message.findById(message._id).populate({
+          path: "replyTo",
+          select: "content sender",
+          populate: { path: "sender", select: "name" }
+        });
+      }
 
       // Broadcast to all users in the chat except the sender
       chat.users.forEach(user => {
@@ -59,13 +70,51 @@ module.exports = (io, socket) => {
           createdAt: message.createdAt,
           senderName: sender?.name,
           senderNumber: sender?.number,
-          status: 'sent'
+          status: 'sent',
+          replyTo: populatedMessage.replyTo
         });
       });
       
       console.log(`📩 Message relayed to users in chat: ${chatId}`);
     } catch (error) {
       console.error('❌ Error saving message:', error.message);
+    }
+  };
+
+  // Handle message reaction
+  const addReaction = async ({ messageId, userId, emoji, chatId }) => {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) return;
+
+      // Check if user already reacted with this emoji
+      const existingReactionIndex = message.reactions.findIndex(
+        (r) => r.user.toString() === userId.toString() && r.emoji === emoji
+      );
+
+      if (existingReactionIndex > -1) {
+        // Remove reaction if it already exists (Toggle behavior)
+        message.reactions.splice(existingReactionIndex, 1);
+      } else {
+        // Add new reaction
+        message.reactions.push({ user: userId, emoji });
+      }
+
+      await message.save();
+
+      // Broadcast to all users in the chat
+      const chat = await Chat.findById(chatId).populate("users", "_id");
+      chat.users.forEach(user => {
+        socket.in(user._id.toString()).emit('message-reacted', {
+          messageId,
+          reactions: message.reactions,
+          chatId
+        });
+      });
+
+      console.log(`😀 Reaction ${emoji} ${existingReactionIndex > -1 ? 'removed from' : 'added to'} message ${messageId}`);
+    } catch (error) {
+      console.error('❌ Error in add-reaction:', error.message);
     }
   };
 
@@ -157,6 +206,7 @@ module.exports = (io, socket) => {
   // Register events
   socket.on('join-chat', joinChat);
   socket.on('new-message', newMessage);
+  socket.on('add-reaction', addReaction);
   socket.on('message-delivered', messageDelivered);
   socket.on('message-seen', messageSeen);
   socket.on('typing', typing);

@@ -86,6 +86,11 @@ const getChatMessages = async (req, res) => {
 
     const messages = await Message.find({ chat: chatId })
       .populate("sender", "name profilePic number")
+      .populate({
+        path: "replyTo",
+        select: "content sender",
+        populate: { path: "sender", select: "name" }
+      })
       .sort({ createdAt: 1 });
 
     res.status(200).json({

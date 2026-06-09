@@ -4,10 +4,17 @@ interface Message {
   id: string;
   content: string;
   senderId: string;
+  senderName?: string;
   receiverId?: string;
   timestamp: string;
   chatId?: string;
   status?: 'sent' | 'delivered' | 'seen';
+  replyTo?: {
+    _id: string;
+    content: string;
+    sender: { _id: string; name: string };
+  };
+  reactions?: { user: string; emoji: string }[];
 }
 
 interface Chat {
@@ -30,6 +37,7 @@ interface ChatState {
   addMessage: (chatId: string, message: Message) => void;
   updateMessageId: (chatId: string, tempId: string, realId: string) => void;
   updateMessageStatus: (chatId: string, messageId: string, status: 'sent' | 'delivered' | 'seen') => void;
+  updateMessageReactions: (chatId: string, messageId: string, reactions: { user: string; emoji: string }[]) => void;
   markMessagesAsSeen: (chatId: string, senderId: string) => void;
   updateChatFromMessage: (messageData: any, isMe: boolean) => void;
   updateChatStatus: (chatId: string, messageId: string, status: string) => void;
@@ -118,6 +126,17 @@ export const useChatStore = create<ChatState>((set) => ({
       const chatMessages = state.messages[chatId] || [];
       const updatedMessages = chatMessages.map((m) =>
         m.id === messageId ? { ...m, status } : m
+      );
+      return {
+        messages: { ...state.messages, [chatId]: updatedMessages }
+      };
+    }),
+
+  updateMessageReactions: (chatId, messageId, reactions) =>
+    set((state) => {
+      const chatMessages = state.messages[chatId] || [];
+      const updatedMessages = chatMessages.map((m) =>
+        m.id === messageId ? { ...m, reactions } : m
       );
       return {
         messages: { ...state.messages, [chatId]: updatedMessages }

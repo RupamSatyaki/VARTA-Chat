@@ -20,16 +20,28 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { Colors } from '../../theme/colors';
 
+import { Swipeable, RectButton } from 'react-native-gesture-handler';
+import Animated, { FadeIn, FadeInDown, FadeOut, ScaleInCenter } from 'react-native-reanimated';
+
 import apiClient from '../../api/apiClient';
 
 interface Message {
   id: string;
   content: string;
   senderId: string;
+  senderName?: string;
   receiverId?: string;
   timestamp: string;
   status?: 'sent' | 'delivered' | 'seen';
+  replyTo?: {
+    _id: string;
+    content: string;
+    sender: { _id: string; name: string };
+  };
+  reactions?: { user: string; emoji: string }[];
 }
+
+const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const ChatScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -38,6 +50,8 @@ const ChatScreen: React.FC = () => {
   
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [showReactionFor, setShowReactionFor] = useState<string | null>(null);
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
@@ -46,6 +60,7 @@ const ChatScreen: React.FC = () => {
     setMessages, 
     addMessage, 
     updateMessageStatus, 
+    updateMessageReactions,
     markMessagesAsSeen, 
     updateMessageId,
     typingStatus,
@@ -99,6 +114,8 @@ const ChatScreen: React.FC = () => {
           receiverId: m.receiver,
           status: m.status,
           timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          replyTo: m.replyTo,
+          reactions: m.reactions,
         }));
         setMessages(chat._id, formattedMessages);
         
@@ -134,6 +151,8 @@ const ChatScreen: React.FC = () => {
             receiverId: newMessage.receiverId,
             status: chat.isGroupChat ? 'sent' : 'seen', 
             timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            replyTo: newMessage.replyTo,
+            reactions: newMessage.reactions || [],
           };
           addMessage(chat._id, formattedMsg);
 
@@ -161,6 +180,12 @@ const ChatScreen: React.FC = () => {
         }
       });
 
+      socket.on('message-reacted', ({ messageId, reactions, chatId }: any) => {
+        if (chatId === chat._id) {
+          updateMessageReactions(chatId, messageId, reactions);
+        }
+      });
+
       socket.on('typing', ({ chatId, userId }: any) => {
         if (chatId === chat._id) setTyping(chatId, true);
       });
@@ -176,11 +201,27 @@ const ChatScreen: React.FC = () => {
         socket.off('message-status-updated');
         socket.off('messages-seen');
         socket.off('message-sent');
+        socket.off('message-reacted');
         socket.off('typing');
         socket.off('stop-typing');
       }
     };
-  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, markMessagesAsSeen, updateMessageId, setTyping, chat.isGroupChat]);
+  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, updateMessageReactions, markMessagesAsSeen, updateMessageId, setTyping, chat.isGroupChat]);
+
+  const handleReaction = (messageId: string, emoji: string) => {
+    if (!socket || !userData) return;
+    socket.emit('add-reaction', {
+      messageId,
+      userId: userData._id,
+      emoji,
+      chatId: chat._id
+    });
+    setShowReactionFor(null);
+  };
+
+  const handleReply = (msg: Message) => {
+    setReplyingTo(msg);
+  };
 
   const handleTextChange = (text: string) => {
     setMessage(text);
@@ -212,21 +253,34 @@ const ChatScreen: React.FC = () => {
       });
     }
 
-    const newMessage: Message = {
+    const newMessage: any = {
       id: Date.now().toString(),
       content: message,
       senderId: userData._id,
       receiverId: chat.isGroupChat ? null : user._id,
       status: 'sent',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      replyTo: replyingTo ? {
+        _id: replyingTo.id,
+        content: replyingTo.content,
+        sender: { name: replyingTo.senderName || 'User' }
+      } : null
     };
-    socket.emit('new-message', { ...newMessage, chatId: chat._id });
+
+    socket.emit('new-message', { 
+      ...newMessage, 
+      chatId: chat._id,
+      replyTo: replyingTo?.id 
+    });
+
     addMessage(chat._id, newMessage);
     setMessage('');
+    setReplyingTo(null);
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === userData?._id;
+    const isReactionVisible = showReactionFor === item.id;
     
     const renderStatusIcon = () => {
       if (!isMe || chat.isGroupChat) return null;
@@ -243,19 +297,64 @@ const ChatScreen: React.FC = () => {
       }
     };
 
-    return (
-      <View style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}>
-        <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-          {!isMe && chat.isGroupChat && item.senderName && (
-            <Text style={styles.senderName}>{item.senderName}</Text>
-          )}
-          <Text style={styles.messageText}>{item.content}</Text>
-          <View style={styles.messageFooter}>
-            <Text style={styles.timestamp}>{item.timestamp}</Text>
-            {renderStatusIcon()}
-          </View>
-        </View>
+    const renderLeftActions = () => (
+      <View style={styles.replyActionContainer}>
+        <Ionicons name="arrow-undo" size={24} color={Colors.primary} />
       </View>
+    );
+
+    return (
+      <Swipeable
+        renderLeftActions={renderLeftActions}
+        onSwipeableLeftOpen={() => handleReply(item)}
+        friction={2}
+        leftThreshold={40}
+      >
+        <TouchableOpacity 
+          activeOpacity={1}
+          onLongPress={() => setShowReactionFor(item.id)}
+          style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}
+        >
+          {isReactionVisible && (
+            <Animated.View entering={FadeInDown} style={[styles.reactionContainer, isMe ? { right: 0 } : { left: 0 }]}>
+              {REACTIONS.map((emoji) => (
+                <TouchableOpacity key={emoji} onPress={() => handleReaction(item.id, emoji)}>
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </Animated.View>
+          )}
+
+          <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
+            {!isMe && chat.isGroupChat && item.senderName && (
+              <Text style={styles.senderName}>{item.senderName}</Text>
+            )}
+            
+            {item.replyTo && (
+              <View style={styles.replyContext}>
+                <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
+                <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
+              </View>
+            )}
+
+            <Text style={styles.messageText}>{item.content}</Text>
+            
+            <View style={styles.messageFooter}>
+              <Text style={styles.timestamp}>{item.timestamp}</Text>
+              {renderStatusIcon()}
+            </View>
+
+            {item.reactions && item.reactions.length > 0 && (
+              <View style={styles.messageReactions}>
+                {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
+                  <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
+                ))}
+                <Text style={styles.reactionCount}>{item.reactions.length}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
@@ -329,6 +428,18 @@ const ChatScreen: React.FC = () => {
 
         {/* 3. Footer Input */}
         <SafeAreaView style={styles.footerContainer} edges={['bottom']}>
+          {replyingTo && (
+            <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.replyPreview}>
+              <View style={styles.replyBar} />
+              <View style={styles.replyPreviewContent}>
+                <Text style={styles.replySender}>{replyingTo.senderName || 'User'}</Text>
+                <Text style={styles.replyPreviewText} numberOfLines={1}>{replyingTo.content}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.closeReply}>
+                <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
           <View style={styles.footer}>
             <View style={styles.inputBox}>
               <TouchableOpacity style={styles.btn}><Ionicons name="happy-outline" size={24} color={Colors.textSecondary} /></TouchableOpacity>
@@ -348,6 +459,14 @@ const ChatScreen: React.FC = () => {
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
+
+      {showReactionFor && (
+        <TouchableOpacity 
+          style={StyleSheet.absoluteFill} 
+          activeOpacity={1} 
+          onPress={() => setShowReactionFor(null)} 
+        />
+      )}
     </View>
   );
 };
@@ -425,6 +544,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
+    minWidth: 60,
   },
   myBubble: {
     backgroundColor: Colors.primary,
@@ -441,7 +561,7 @@ const styles = StyleSheet.create({
   senderName: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: Colors.primary,
+    color: Colors.secondary,
     marginBottom: 2,
   },
   messageFooter: {
@@ -458,10 +578,104 @@ const styles = StyleSheet.create({
   tickIcon: {
     marginLeft: 2,
   },
+  replyContext: {
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    padding: 8,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.secondary,
+    marginBottom: 6,
+  },
+  replySender: {
+    color: Colors.secondary,
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  replyContent: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+  },
+  messageReactions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2C2C2C',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginTop: -8,
+    borderWidth: 1,
+    borderColor: '#1E1E1E',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+  },
+  appliedReaction: {
+    fontSize: 12,
+    marginRight: 2,
+  },
+  reactionCount: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    marginLeft: 2,
+  },
+  reactionContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#2C2C2C',
+    padding: 8,
+    borderRadius: 30,
+    position: 'absolute',
+    top: -50,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  reactionEmoji: {
+    fontSize: 24,
+    marginHorizontal: 6,
+  },
+  replyActionContainer: {
+    width: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   footerContainer: {
     backgroundColor: Colors.surface,
     borderTopWidth: 0.5,
     borderTopColor: Colors.lightGray,
+  },
+  replyPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  replyBar: {
+    width: 4,
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: 2,
+  },
+  replyPreviewContent: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  replyPreviewText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+  },
+  closeReply: {
+    padding: 5,
   },
   footer: {
     flexDirection: 'row',
