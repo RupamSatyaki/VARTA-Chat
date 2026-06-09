@@ -7,7 +7,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.varta.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "VARTA needs access to your camera for video calls.",
+        "NSMicrophoneUsageDescription": "VARTA needs access to your microphone for audio calls."
+      }
     },
     "android": {
       "package": "com.varta.app",
@@ -24,16 +29,13 @@
       ],
       "predictiveBackGestureEnabled": false
     },
-    "ios": {
-      "bundleIdentifier": "com.varta.app",
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSCameraUsageDescription": "VARTA needs access to your camera for video calls.",
-        "NSMicrophoneUsageDescription": "VARTA needs access to your microphone for audio calls."
-      }
-    },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "00e34edd-03f8-4055-bdf3-22ceabf1bd04"
+      }
+    }
   }
 }
