@@ -5,13 +5,19 @@ import {
   Text, 
   Image, 
   TouchableOpacity, 
-  ScrollView, 
   StatusBar,
   Dimensions,
   Platform,
   Alert,
   ActivityIndicator
 } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolate
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -19,15 +25,24 @@ import { Colors } from '../../theme/colors';
 import { useAuthStore } from '../../store/useAuthStore';
 import apiClient from '../../api/apiClient';
 
-const { width } = Dimensions.get('window');
+const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HEADER_MAX_HEIGHT = width * 0.8;
+const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 110 : 90;
+const SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 
 const GroupInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const { chat: initialChat } = route.params;
   const [chat, setChat] = useState(initialChat);
-  const { userData, userToken } = useAuthStore();
+  const { userData } = useAuthStore();
   const [loading, setLoading] = useState(false);
+
+  const scrollY = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
 
   const fetchChatDetails = async () => {
     try {
@@ -75,6 +90,108 @@ const GroupInfoScreen: React.FC = () => {
     );
   };
 
+  // Animated Styles
+  const headerStyle = useAnimatedStyle(() => {
+    const headerHeight = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+      Extrapolate.CLAMP
+    );
+    const backgroundColor = interpolate(
+      scrollY.value,
+      [SCROLL_DISTANCE - 20, SCROLL_DISTANCE],
+      [0, 1]
+    );
+    const borderBottomWidth = interpolate(
+      scrollY.value,
+      [SCROLL_DISTANCE - 10, SCROLL_DISTANCE],
+      [0, 0.5]
+    );
+    return {
+      height: headerHeight,
+      backgroundColor: `rgba(30, 30, 30, ${backgroundColor})`,
+      borderBottomWidth,
+      borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    };
+  });
+
+  const profilePicStyle = useAnimatedStyle(() => {
+    const size = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [width, 38],
+      Extrapolate.CLAMP
+    );
+    const left = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [0, 56], // Directly after back button (16 padding + 40 backBtn width)
+      Extrapolate.CLAMP
+    );
+    const top = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [0, Platform.OS === 'ios' ? 56 : 36],
+      Extrapolate.CLAMP
+    );
+    const borderRadius = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [0, 19],
+      Extrapolate.CLAMP
+    );
+
+    return {
+      width: size,
+      height: size,
+      left,
+      top,
+      position: 'absolute',
+      borderRadius,
+    };
+  });
+
+  const nameTranslateX = useAnimatedStyle(() => {
+    const translateX = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [0, 80], // 20 initial left + 80 = 100. (56 left + 38 size + 6 gap = 100)
+      Extrapolate.CLAMP
+    );
+    const translateY = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [0, -(HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT) + (Platform.OS === 'ios' ? 22 : 12)],
+      Extrapolate.CLAMP
+    );
+    const scale = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE],
+      [1, 0.9],
+      Extrapolate.CLAMP
+    );
+
+    return {
+      transform: [
+        { translateX },
+        { translateY },
+        { scale }
+      ],
+      maxWidth: width - 150,
+    };
+  });
+
+  const imageOverlayStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, SCROLL_DISTANCE / 2],
+      [0.3, 0],
+      Extrapolate.CLAMP
+    );
+    return { opacity };
+  });
+
   const renderMemberItem = (member: any) => (
     <View key={member._id} style={styles.memberItem}>
       <Image 
@@ -83,7 +200,7 @@ const GroupInfoScreen: React.FC = () => {
       />
       <View style={styles.memberInfo}>
         <Text style={styles.memberName}>{member.name || member.number}</Text>
-        <Text style={styles.memberStatus}>{member._id === chat.groupAdmin?._id ? 'Group Admin' : 'Member'}</Text>
+        <Text style={styles.memberStatus}>{member._id === (chat.groupAdmin?._id || chat.groupAdmin) ? 'Group Admin' : 'Member'}</Text>
       </View>
       {isAdmin && member._id !== userData?._id && (
         <TouchableOpacity onPress={() => handleRemoveMember(member._id)}>
@@ -97,28 +214,33 @@ const GroupInfoScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
-      <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-        {/* Header with Image */}
-        <View style={styles.imageHeader}>
-          <Image 
-            source={{ uri: chat.groupProfilePic || 'https://cdn-icons-png.flaticon.com/512/615/615075.png' }} 
-            style={styles.profilePic} 
-            resizeMode="cover"
-          />
-          <View style={styles.headerOverlay}>
-            <SafeAreaView edges={['top']}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                <Ionicons name="arrow-back" size={24} color={Colors.white} />
-              </TouchableOpacity>
-            </SafeAreaView>
-            
-            <View style={styles.nameContainer}>
-              <Text style={styles.userName}>{chat.chatName}</Text>
-              <Text style={styles.userStatus}>{chat.users?.length} members</Text>
-            </View>
-          </View>
-        </View>
+      {/* Animated Header */}
+      <Animated.View style={[styles.header, headerStyle]}>
+        <Animated.Image 
+          source={{ uri: chat.groupProfilePic || 'https://cdn-icons-png.flaticon.com/512/615/615075.png' }} 
+          style={profilePicStyle}
+        />
+        
+        <Animated.View style={[styles.imageOverlay, imageOverlayStyle]} />
 
+        <SafeAreaView style={styles.headerTop} edges={['top']}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </SafeAreaView>
+
+        <Animated.View style={[styles.nameContainer, nameTranslateX]}>
+          <Text style={styles.userName} numberOfLines={1}>{chat.chatName}</Text>
+          <Text style={styles.userStatus}>{chat.users?.length} members</Text>
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.ScrollView 
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: HEADER_MAX_HEIGHT }}
+      >
         <View style={styles.content}>
           {/* Description */}
           <View style={styles.section}>
@@ -161,7 +283,8 @@ const GroupInfoScreen: React.FC = () => {
             )}
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
+
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={Colors.primary} />
@@ -175,21 +298,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      }
+    })
   },
-  imageHeader: {
-    width: width,
-    height: width * 0.8,
-    position: 'relative',
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    overflow: 'hidden',
   },
-  profilePic: {
-    width: '100%',
-    height: '100%',
+  headerTop: {
+    paddingHorizontal: 16,
+    zIndex: 110,
   },
-  headerOverlay: {
+  imageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'space-between',
-    padding: 16,
+    backgroundColor: 'black',
   },
   backBtn: {
     width: 40,
@@ -200,10 +331,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nameContainer: {
-    paddingBottom: 20,
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    zIndex: 105,
   },
   userName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: Colors.white,
     textShadow: '0px 2px 4px rgba(0,0,0,0.5)',
@@ -211,7 +346,7 @@ const styles = StyleSheet.create({
   userStatus: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
+    marginTop: 2,
   },
   content: {
     backgroundColor: Colors.background,
@@ -219,7 +354,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     marginTop: -30,
     paddingTop: 30,
-    paddingBottom: 40,
+    paddingBottom: SCREEN_HEIGHT * 0.5, // Added extra padding at bottom to force scroll
+    minHeight: SCREEN_HEIGHT,
   },
   section: {
     paddingHorizontal: 20,
@@ -298,6 +434,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000,
   }
 });
 
