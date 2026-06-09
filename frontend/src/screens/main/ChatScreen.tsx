@@ -43,6 +43,136 @@ interface Message {
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
+const MessageItem = React.memo(({ 
+  item, 
+  isMe, 
+  chat, 
+  userData, 
+  handleReply, 
+  showReactionFor, 
+  setShowReactionFor, 
+  handleReaction,
+  REACTIONS 
+}: { 
+  item: Message; 
+  isMe: boolean; 
+  chat: any; 
+  userData: any; 
+  handleReply: (msg: Message) => void; 
+  showReactionFor: string | null; 
+  setShowReactionFor: (id: string | null) => void; 
+  handleReaction: (msgId: string, emoji: string) => void;
+  REACTIONS: string[];
+}) => {
+  const swipeableRef = useRef<Swipeable>(null);
+  const isReactionVisible = showReactionFor === item.id;
+
+  const onSwipeOpen = () => {
+    handleReply(item);
+    setTimeout(() => {
+      swipeableRef.current?.close();
+    }, 100);
+  };
+
+  const renderStatusIcon = () => {
+    if (!isMe || chat.isGroupChat) return null;
+    
+    switch (item.status) {
+      case 'seen':
+        return <Ionicons name="checkmark-done" size={16} color="#34B7F1" style={styles.tickIcon} />;
+      case 'delivered':
+        return <Ionicons name="checkmark-done" size={16} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
+      case 'sent':
+        return <Ionicons name="checkmark" size={16} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
+      default:
+        return <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
+    }
+  };
+
+  const renderActions = () => (
+    <View style={styles.replyActionContainer}>
+      <Ionicons name="arrow-undo" size={24} color={Colors.primary} />
+    </View>
+  );
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderLeftActions={renderActions}
+      renderRightActions={renderActions}
+      onSwipeableOpen={onSwipeOpen}
+      friction={2}
+      leftThreshold={40}
+      rightThreshold={40}
+      containerStyle={{ zIndex: isReactionVisible ? 999 : 1 }}
+    >
+      <TouchableOpacity 
+        activeOpacity={1}
+        onLongPress={() => setShowReactionFor(item.id)}
+        style={[
+          styles.messageWrapper, 
+          isMe ? styles.myMessageWrapper : styles.otherMessageWrapper,
+          isReactionVisible && { zIndex: 1000, elevation: 10 }
+        ]}
+      >
+        {isReactionVisible && (
+          <Animated.View 
+            entering={FadeInDown.duration(200)} 
+            exiting={FadeOut.duration(150)}
+            style={[
+              styles.reactionContainer, 
+              isMe ? { right: 0 } : { left: 0 }
+            ]}
+          >
+            {REACTIONS.map((emoji) => (
+              <TouchableOpacity 
+                key={emoji} 
+                onPress={() => handleReaction(item.id, emoji)}
+                style={styles.reactionTouch}
+              >
+                <Text style={styles.reactionEmoji}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+        )}
+
+        <View style={[
+          styles.messageBubble, 
+          isMe ? styles.myBubble : styles.otherBubble,
+          isReactionVisible && styles.activeBubble
+        ]}>
+          {!isMe && chat.isGroupChat && item.senderName && (
+            <Text style={styles.senderName}>{item.senderName}</Text>
+          )}
+          
+          {item.replyTo && (
+            <View style={styles.replyContext}>
+              <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
+              <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
+            </View>
+          )}
+
+          <Text style={styles.messageText}>{item.content}</Text>
+          
+          <View style={styles.messageFooter}>
+            <Text style={styles.timestamp}>{item.timestamp}</Text>
+            {renderStatusIcon()}
+          </View>
+
+          {item.reactions && item.reactions.length > 0 && (
+            <View style={styles.messageReactions}>
+              {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
+                <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
+              ))}
+              <Text style={styles.reactionCount}>{item.reactions.length}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    </Swipeable>
+  );
+});
+
 const ChatScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
@@ -280,108 +410,19 @@ const ChatScreen: React.FC = () => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === userData?._id;
-    const isReactionVisible = showReactionFor === item.id;
     
-    const renderStatusIcon = () => {
-      if (!isMe || chat.isGroupChat) return null;
-      
-      switch (item.status) {
-        case 'seen':
-          return <Ionicons name="checkmark-done" size={16} color="#34B7F1" style={styles.tickIcon} />;
-        case 'delivered':
-          return <Ionicons name="checkmark-done" size={16} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
-        case 'sent':
-          return <Ionicons name="checkmark" size={16} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
-        default:
-          return <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.6)" style={styles.tickIcon} />;
-      }
-    };
-
-    const renderLeftActions = () => (
-      <View style={styles.replyActionContainer}>
-        <Ionicons name="arrow-undo" size={24} color={Colors.primary} />
-      </View>
-    );
-
     return (
-      <Swipeable
-        renderLeftActions={renderLeftActions}
-        onSwipeableLeftOpen={() => handleReply(item)}
-        friction={2}
-        leftThreshold={40}
-        containerStyle={{ zIndex: isReactionVisible ? 999 : 1 }} // Ensure the entire swipeable row is elevated
-      >
-        <TouchableOpacity 
-          activeOpacity={1}
-          onLongPress={() => {
-            if (Platform.OS === 'web') {
-              // Simple alert or custom menu for web if long-press is tricky
-              setShowReactionFor(item.id);
-            } else {
-              setShowReactionFor(item.id);
-            }
-          }}
-          style={[
-            styles.messageWrapper, 
-            isMe ? styles.myMessageWrapper : styles.otherMessageWrapper,
-            isReactionVisible && { zIndex: 1000, elevation: 10 } // High elevation for Android
-          ]}
-        >
-          {isReactionVisible && (
-            <Animated.View 
-              entering={FadeInDown.duration(200)} 
-              exiting={FadeOut.duration(150)}
-              style={[
-                styles.reactionContainer, 
-                isMe ? { right: 0 } : { left: 0 }
-              ]}
-            >
-              {REACTIONS.map((emoji) => (
-                <TouchableOpacity 
-                  key={emoji} 
-                  onPress={() => handleReaction(item.id, emoji)}
-                  style={styles.reactionTouch}
-                >
-                  <Text style={styles.reactionEmoji}>{emoji}</Text>
-                </TouchableOpacity>
-              ))}
-            </Animated.View>
-          )}
-
-          <View style={[
-            styles.messageBubble, 
-            isMe ? styles.myBubble : styles.otherBubble,
-            isReactionVisible && styles.activeBubble
-          ]}>
-            {!isMe && chat.isGroupChat && item.senderName && (
-              <Text style={styles.senderName}>{item.senderName}</Text>
-            )}
-            
-            {item.replyTo && (
-              <View style={styles.replyContext}>
-                <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
-                <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
-              </View>
-            )}
-
-            <Text style={styles.messageText}>{item.content}</Text>
-            
-            <View style={styles.messageFooter}>
-              <Text style={styles.timestamp}>{item.timestamp}</Text>
-              {renderStatusIcon()}
-            </View>
-
-            {item.reactions && item.reactions.length > 0 && (
-              <View style={styles.messageReactions}>
-                {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
-                  <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
-                ))}
-                <Text style={styles.reactionCount}>{item.reactions.length}</Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Swipeable>
+      <MessageItem
+        item={item}
+        isMe={isMe}
+        chat={chat}
+        userData={userData}
+        handleReply={handleReply}
+        showReactionFor={showReactionFor}
+        setShowReactionFor={setShowReactionFor}
+        handleReaction={handleReaction}
+        REACTIONS={REACTIONS}
+      />
     );
   };
 
