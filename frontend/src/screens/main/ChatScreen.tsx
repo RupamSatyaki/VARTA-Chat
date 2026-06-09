@@ -309,23 +309,50 @@ const ChatScreen: React.FC = () => {
         onSwipeableLeftOpen={() => handleReply(item)}
         friction={2}
         leftThreshold={40}
+        containerStyle={{ zIndex: isReactionVisible ? 999 : 1 }} // Ensure the entire swipeable row is elevated
       >
         <TouchableOpacity 
           activeOpacity={1}
-          onLongPress={() => setShowReactionFor(item.id)}
-          style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.otherMessageWrapper]}
+          onLongPress={() => {
+            if (Platform.OS === 'web') {
+              // Simple alert or custom menu for web if long-press is tricky
+              setShowReactionFor(item.id);
+            } else {
+              setShowReactionFor(item.id);
+            }
+          }}
+          style={[
+            styles.messageWrapper, 
+            isMe ? styles.myMessageWrapper : styles.otherMessageWrapper,
+            isReactionVisible && { zIndex: 1000, elevation: 10 } // High elevation for Android
+          ]}
         >
           {isReactionVisible && (
-            <Animated.View entering={FadeInDown} style={[styles.reactionContainer, isMe ? { right: 0 } : { left: 0 }]}>
+            <Animated.View 
+              entering={FadeInDown.duration(200)} 
+              exiting={FadeOut.duration(150)}
+              style={[
+                styles.reactionContainer, 
+                isMe ? { right: 0 } : { left: 0 }
+              ]}
+            >
               {REACTIONS.map((emoji) => (
-                <TouchableOpacity key={emoji} onPress={() => handleReaction(item.id, emoji)}>
+                <TouchableOpacity 
+                  key={emoji} 
+                  onPress={() => handleReaction(item.id, emoji)}
+                  style={styles.reactionTouch}
+                >
                   <Text style={styles.reactionEmoji}>{emoji}</Text>
                 </TouchableOpacity>
               ))}
             </Animated.View>
           )}
 
-          <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
+          <View style={[
+            styles.messageBubble, 
+            isMe ? styles.myBubble : styles.otherBubble,
+            isReactionVisible && styles.activeBubble
+          ]}>
             {!isMe && chat.isGroupChat && item.senderName && (
               <Text style={styles.senderName}>{item.senderName}</Text>
             )}
@@ -550,6 +577,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderBottomRightRadius: 4,
   },
+  activeBubble: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
   otherBubble: {
     backgroundColor: Colors.surface,
     borderBottomLeftRadius: 4,
@@ -628,19 +659,23 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 30,
     position: 'absolute',
-    top: -50,
-    zIndex: 1000,
-    elevation: 5,
+    top: -55, // Positioned above the bubble
+    zIndex: 9999,
+    elevation: 20, // Max elevation for Android
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignSelf: 'center',
+  },
+  reactionTouch: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   reactionEmoji: {
-    fontSize: 24,
-    marginHorizontal: 6,
+    fontSize: 26,
   },
   replyActionContainer: {
     width: 50,
