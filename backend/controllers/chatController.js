@@ -75,8 +75,8 @@ const fetchChats = async (req, res) => {
     const chatsWithUnreadCount = await Promise.all(populatedResults.map(async (chat) => {
       const unreadCount = await Message.countDocuments({
         chat: chat._id,
-        receiver: req.user._id,
-        status: { $ne: 'seen' }
+        sender: { $ne: req.user._id },
+        readBy: { $ne: req.user._id }
       });
       return { ...chat._doc, unreadCount };
     }));

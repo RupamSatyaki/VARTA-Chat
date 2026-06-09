@@ -34,7 +34,8 @@ module.exports = (io, socket) => {
         status: 'sent',
         chat: chatId,
         // For 1-on-1, receiver is the other user. For group, it can be null.
-        receiver: chat.isGroupChat ? null : chat.users.find(u => u._id.toString() !== senderId.toString())?._id
+        receiver: chat.isGroupChat ? null : chat.users.find(u => u._id.toString() !== senderId.toString())?._id,
+        readBy: [senderId] // Sender has obviously read their own message
       });
 
       console.log(`💾 Message saved to DB: ${message._id}`);
@@ -95,21 +96,36 @@ module.exports = (io, socket) => {
   // Handle message seen (Receiver opened the chat)
   const messageSeen = async ({ chatId, senderId, receiverId }) => {
     try {
-      // Mark all messages in this chat sent by 'senderId' to 'receiverId' as seen
+      // 1. Add the receiver to the readBy array for all messages they haven't read yet
       await Message.updateMany(
-        { chat: chatId, sender: senderId, receiver: receiverId, status: { $ne: 'seen' } },
-        { status: 'seen', seenAt: Date.now() }
+        { chat: chatId, sender: { $ne: receiverId }, readBy: { $ne: receiverId } },
+        { $addToSet: { readBy: receiverId } }
       );
 
-      // 1. Notify the sender that their messages were read (to update ticks to blue)
-      socket.in(senderId).emit('messages-seen', {
-        chatId,
-        senderId,
-        receiverId
-      });
+      // 2. For 1-on-1 chats, we still update the status to 'seen' for UI ticks
+      if (senderId && receiverId) {
+        await Message.updateMany(
+          { chat: chatId, sender: senderId, receiver: receiverId, status: { $ne: 'seen' } },
+          { status: 'seen', seenAt: Date.now() }
+        );
 
-      // 2. Notify the receiver that they read the messages (to sync unread counts across devices)
-      socket.in(receiverId).emit('messages-seen', {
+        // Notify the sender that their messages were read (to update ticks to blue)
+        socket.in(senderId).emit('messages-seen', {
+          chatId,
+          senderId,
+          receiverId
+        });
+      } else {
+        // For group chats, we broadcast to the room that someone read messages
+        // (This can be used to update unread counts for that user on other devices)
+        socket.to(chatId).emit('messages-seen', {
+          chatId,
+          receiverId
+        });
+      }
+
+      // Notify the receiver that they read the messages (to sync unread counts across devices)
+      socket.emit('messages-seen', {
         chatId,
         senderId,
         receiverId

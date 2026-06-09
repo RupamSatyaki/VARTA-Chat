@@ -103,10 +103,10 @@ const ChatScreen: React.FC = () => {
         setMessages(chat._id, formattedMessages);
         
         // Mark these messages as seen in the backend
-        if (socket && userData && !chat.isGroupChat) {
+        if (socket && userData) {
           socket.emit('message-seen', {
             chatId: chat._id,
-            senderId: user._id, 
+            senderId: chat.isGroupChat ? null : user._id, 
             receiverId: userData._id
           });
         }
@@ -137,13 +137,11 @@ const ChatScreen: React.FC = () => {
           };
           addMessage(chat._id, formattedMsg);
 
-          if (!chat.isGroupChat) {
-            socket.emit('message-seen', {
-              chatId: chat._id,
-              senderId: newMessage.senderId,
-              receiverId: userData?._id
-            });
-          }
+          socket.emit('message-seen', {
+            chatId: chat._id,
+            senderId: chat.isGroupChat ? null : newMessage.senderId,
+            receiverId: userData?._id
+          });
         }
       });
 
