@@ -1,5 +1,6 @@
 const { Server } = require('socket.io');
 const registerChatHandlers = require('./chatHandler');
+const registerCallHandlers = require('./callHandler');
 const User = require('../models/User');
 
 // Track online users: { userId: socketId }
@@ -49,6 +50,7 @@ const initSocket = (server) => {
 
     // Register modular handlers
     registerChatHandlers(io, socket);
+    registerCallHandlers(io, socket);
 
     socket.on('disconnect', async () => {
       // Find the user ID associated with this socket
