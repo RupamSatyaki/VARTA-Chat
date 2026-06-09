@@ -9,9 +9,9 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  FlatList
 } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -250,8 +250,7 @@ const ChatScreen: React.FC = () => {
       <StatusBar barStyle="light-content" />
       
       {/* 1. Header */}
-      <View style={styles.header}>
-        <SafeAreaView />
+      <SafeAreaView style={styles.header} edges={['top']}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.btn}>
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
@@ -281,34 +280,33 @@ const ChatScreen: React.FC = () => {
           <TouchableOpacity style={styles.btn}><Ionicons name="call" size={20} color={Colors.primary} /></TouchableOpacity>
           <TouchableOpacity style={styles.btn}><Ionicons name="ellipsis-vertical" size={20} color={Colors.text} /></TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
 
-      {/* 2. Chat Area */}
-      <View style={styles.chatArea}>
-        {loading && chatMessages.length === 0 && <ActivityIndicator style={styles.loader} color={Colors.primary} />}
-        <FlatList
-          ref={flatListRef}
-          data={chatMessages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.listContent}
-          onContentSizeChange={() => chatMessages.length > 0 && flatListRef.current?.scrollToEnd({ animated: true })}
-          onLayout={() => chatMessages.length > 0 && flatListRef.current?.scrollToEnd({ animated: false })}
-          showsVerticalScrollIndicator={true}
-          style={{ flex: 1 }}
-          removeClippedSubviews={false}
-          keyboardShouldPersistTaps="handled"
-          overScrollMode="always"
-        />
-      </View>
-
-      {/* 3. Footer Area */}
+      {/* 2. Main Content Area (Chat + Input) wrapped in KeyboardAvoidingView */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        style={styles.footerWrapper}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={styles.mainContent}
       >
-        <View style={styles.footerContainer}>
+        <View style={styles.chatArea}>
+          {loading && chatMessages.length === 0 && <ActivityIndicator style={styles.loader} color={Colors.primary} />}
+          <FlatList
+            ref={flatListRef}
+            data={chatMessages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.listContent}
+            onContentSizeChange={() => chatMessages.length > 0 && flatListRef.current?.scrollToEnd({ animated: true })}
+            onLayout={() => chatMessages.length > 0 && flatListRef.current?.scrollToEnd({ animated: false })}
+            showsVerticalScrollIndicator={true}
+            style={{ flex: 1, height: '100%' }}
+            removeClippedSubviews={Platform.OS === 'android'}
+            keyboardShouldPersistTaps="handled"
+          />
+        </View>
+
+        {/* 3. Footer Input */}
+        <SafeAreaView style={styles.footerContainer} edges={['bottom']}>
           <View style={styles.footer}>
             <View style={styles.inputBox}>
               <TouchableOpacity style={styles.btn}><Ionicons name="happy-outline" size={24} color={Colors.textSecondary} /></TouchableOpacity>
@@ -326,8 +324,7 @@ const ChatScreen: React.FC = () => {
               <Ionicons name={message.trim() ? "send" : "mic"} size={22} color={Colors.white} />
             </TouchableOpacity>
           </View>
-          <SafeAreaView edges={['bottom']} />
-        </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -337,15 +334,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    height: Platform.OS === 'web' ? '100vh' : '100%',
-    maxHeight: Platform.OS === 'web' ? '100vh' : '100%',
-    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {
+        flex: 1,
+      }
+    })
   },
   header: {
     backgroundColor: Colors.surface,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    zIndex: 100,
   },
   headerContent: {
     flexDirection: 'row',
@@ -373,10 +376,13 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 11,
   },
+  mainContent: {
+    flex: 1,
+    overflow: 'hidden', // Add this to constrain the chatArea + footer
+  },
   chatArea: {
     flex: 1,
     backgroundColor: Colors.background,
-    overflow: 'hidden',
   },
   listContent: {
     padding: 15,
@@ -424,15 +430,10 @@ const styles = StyleSheet.create({
   tickIcon: {
     marginLeft: 2,
   },
-  footerWrapper: {
-    width: '100%',
-    zIndex: 200,
-  },
   footerContainer: {
     backgroundColor: Colors.surface,
     borderTopWidth: 0.5,
     borderTopColor: Colors.lightGray,
-    width: '100%',
   },
   footer: {
     flexDirection: 'row',

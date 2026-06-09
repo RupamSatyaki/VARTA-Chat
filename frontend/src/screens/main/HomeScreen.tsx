@@ -6,9 +6,9 @@ import {
   TouchableOpacity, 
   ActivityIndicator, 
   StatusBar,
-  Image
+  Image,
+  FlatList
 } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -235,6 +235,7 @@ const HomeScreen: React.FC = () => {
           keyExtractor={(item) => item._id}
           renderItem={renderChatItem}
           contentContainerStyle={styles.listContent}
+          style={{ flex: 1, height: '100%' }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="chatbubbles-outline" size={60} color={Colors.gray} />
@@ -250,7 +251,7 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingHorizontal: 16, paddingBottom: 20 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 20, flexGrow: 1, minHeight: '100%' },
   chatItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255, 255, 255, 0.05)' },
   avatar: { width: 55, height: 55, borderRadius: 27.5 },
   chatInfo: { flex: 1, marginLeft: 15, justifyContent: 'center' },

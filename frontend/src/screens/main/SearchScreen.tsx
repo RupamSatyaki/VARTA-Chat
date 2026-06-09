@@ -9,9 +9,9 @@ import {
   TouchableOpacity,
   StatusBar,
   Platform,
-  TextInput
+  TextInput,
+  FlatList
 } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -180,6 +180,7 @@ const SearchScreen: React.FC = () => {
             keyExtractor={(item) => item._id}
             renderItem={renderUserItem}
             contentContainerStyle={styles.listContent}
+            style={{ flex: 1 }}
             onRefresh={fetchUsers}
             refreshing={loading}
             ListEmptyComponent={
@@ -201,6 +202,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {
+        flex: 1,
+      }
+    })
   },
   header: {
     flexDirection: 'row',
@@ -248,6 +259,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
+    flexGrow: 1,
+    minHeight: '100%',
   },
   userItem: {
     flexDirection: 'row',

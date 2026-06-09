@@ -3,9 +3,10 @@ import {
   StyleSheet, 
   View, 
   Text, 
-  StatusBar
+  StatusBar,
+  FlatList,
+  Platform
 } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
@@ -60,6 +61,7 @@ const SettingsScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => item.component}
         contentContainerStyle={styles.listContent}
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={true}
         bounces={true}
         overScrollMode="always"
@@ -83,9 +85,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.surface,
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {
+        flex: 1,
+      }
+    })
   },
   listContent: {
     paddingBottom: 40,
+    flexGrow: 1,
+    minHeight: '100%',
   },
   footer: {
     padding: 30,
