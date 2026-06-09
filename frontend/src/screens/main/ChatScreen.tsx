@@ -19,6 +19,7 @@ import { useSocket } from '../../context/SocketContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { Colors } from '../../theme/colors';
+import { useCall } from '../../context/CallContext';
 
 import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeInDown, FadeOut, ScaleInCenter } from 'react-native-reanimated';
@@ -185,6 +186,7 @@ const ChatScreen: React.FC = () => {
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
+  const { initiateCall } = useCall();
   const { 
     messages, 
     setMessages, 
@@ -465,8 +467,18 @@ const ChatScreen: React.FC = () => {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.btn}><Ionicons name="videocam" size={22} color={Colors.primary} /></TouchableOpacity>
-          <TouchableOpacity style={styles.btn}><Ionicons name="call" size={20} color={Colors.primary} /></TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.btn} 
+            onPress={() => initiateCall(user._id, user.name || user.number, user.profilePic, 'video')}
+          >
+            <Ionicons name="videocam" size={22} color={Colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.btn} 
+            onPress={() => initiateCall(user._id, user.name || user.number, user.profilePic, 'audio')}
+          >
+            <Ionicons name="call" size={20} color={Colors.primary} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.btn}><Ionicons name="ellipsis-vertical" size={20} color={Colors.text} /></TouchableOpacity>
         </View>
       </SafeAreaView>
