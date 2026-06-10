@@ -759,7 +759,7 @@ const ChatScreen: React.FC = () => {
               
               {showHeaderMenu && (
                 <View style={styles.headerMenu}>
-                  {selectedMessage.senderId === userData?._id && !selectedMessage.isDeleted && (
+                  {String(selectedMessage.senderId) === String(userData?._id) && !selectedMessage.isDeleted && (
                     <>
                       <TouchableOpacity 
                         style={styles.menuItem} 
