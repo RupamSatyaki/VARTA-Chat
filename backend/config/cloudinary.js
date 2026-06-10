@@ -8,6 +8,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Test configuration
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  console.error('❌ Cloudinary configuration error: Missing environment variables');
+} else {
+  console.log('✅ Cloudinary configured for:', process.env.CLOUDINARY_CLOUD_NAME);
+}
+
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
