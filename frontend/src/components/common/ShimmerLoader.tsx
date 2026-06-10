@@ -19,12 +19,19 @@ const ShimmerLoader: React.FC<ShimmerLoaderProps> = ({
   const shimmerAnimatedValue = new Animated.Value(0);
 
   useEffect(() => {
+    const config: any = {
+      toValue: 1,
+      duration: 1500,
+    };
+    
+    if (Platform.OS !== 'web') {
+      config.useNativeDriver = true;
+    } else {
+      config.useNativeDriver = false;
+    }
+
     Animated.loop(
-      Animated.timing(shimmerAnimatedValue, {
-        toValue: 1,
-        duration: 1500,
-        useNativeDriver: Platform.OS !== 'web',
-      })
+      Animated.timing(shimmerAnimatedValue, config)
     ).start();
   }, []);
 

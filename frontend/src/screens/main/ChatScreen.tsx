@@ -198,7 +198,8 @@ const MessageItem = React.memo(({
   return (
     <View style={[
       styles.messageContainer, 
-      isSelected && styles.selectedMessageContainer
+      isSelected && styles.selectedMessageContainer,
+      isSelected && { zIndex: 9999, elevation: 11 }
     ]}>
       <Swipeable
         ref={swipeableRef}
@@ -226,7 +227,7 @@ const MessageItem = React.memo(({
               exiting={FadeOut.duration(150)}
               style={[
                 styles.reactionContainer, 
-                isMe ? { right: 0 } : { left: 0 }
+                isMe ? { right: 10 } : { left: 10 }
               ]}
             >
               {REACTIONS.map((emoji) => (
@@ -265,7 +266,11 @@ const MessageItem = React.memo(({
                 disabled={selectedMessages.length > 0}
               >
                 {item.linkPreview.image && (
-                  <Image source={{ uri: item.linkPreview.image }} style={styles.linkImage} />
+                  <Image 
+                    source={{ uri: item.linkPreview.image }} 
+                    style={styles.linkImage} 
+                    resizeMode="cover"
+                  />
                 )}
                 <View style={styles.linkTextContainer}>
                   {item.linkPreview.siteName && (
@@ -283,7 +288,11 @@ const MessageItem = React.memo(({
 
             {item.type === 'image' && !item.isDeleted ? (
               <View style={styles.messageImageContainer}>
-                <Image source={{ uri: item.content }} style={styles.messageImage} />
+                <Image 
+                  source={{ uri: item.content }} 
+                  style={styles.messageImage} 
+                  resizeMode="cover"
+                />
               </View>
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -1108,7 +1117,6 @@ const styles = StyleSheet.create({
   messageImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   linkPreviewContainer: {
     backgroundColor: 'rgba(0,0,0,0.2)',
@@ -1121,7 +1129,6 @@ const styles = StyleSheet.create({
   linkImage: {
     width: '100%',
     height: 120,
-    resizeMode: 'cover',
   },
   linkTextContainer: {
     padding: 10,
@@ -1175,7 +1182,8 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 30,
     position: 'absolute',
-    top: -55, // Positioned above the bubble
+    bottom: '100%', // Position it above the top of the messageWrapper
+    marginBottom: 5, // Gap between reaction bar and bubble
     zIndex: 10000,
     elevation: 25, // Increased elevation
     shadowColor: '#000',
@@ -1184,7 +1192,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
-    alignSelf: 'center',
   },
   reactionTouch: {
     paddingHorizontal: 8,
