@@ -89,7 +89,7 @@ const ClickableText = ({ text, style, disabled }: { text: string; style: any; di
       elements.push(
         <Text
           key={`link-${match.index}`}
-          style={[style, { color: '#34B7F1', textDecorationLine: 'underline' }]}
+          style={[style, { color: '#34B7F1', textDecorationLine: 'underline', flexShrink: 1 }]}
           onPress={disabled ? undefined : () => Linking.openURL(fullUrl).catch(err => console.error("Couldn't load page", err))}
         >
           {url}
@@ -111,7 +111,7 @@ const ClickableText = ({ text, style, disabled }: { text: string; style: any; di
     return elements;
   };
 
-  return <Text style={style}>{renderContent()}</Text>;
+  return <Text style={[style, { flexWrap: 'wrap', flexShrink: 1 }]}>{renderContent()}</Text>;
 };
 
 const MessageItem = React.memo(({ 
@@ -1100,6 +1100,8 @@ const styles = StyleSheet.create({
   messageText: {
     color: Colors.white,
     fontSize: 15,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   senderName: {
     fontSize: 12,
