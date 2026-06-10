@@ -57,7 +57,7 @@ interface Message {
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-const ClickableText = ({ text, style }: { text: string; style: any }) => {
+const ClickableText = ({ text, style, disabled }: { text: string; style: any; disabled?: boolean }) => {
   const urlRegex = /(https?:\/\/[^\s]+)|(\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b(\/[^\s]*)?)/g;
   const parts = text.split(urlRegex);
 
@@ -90,7 +90,7 @@ const ClickableText = ({ text, style }: { text: string; style: any }) => {
         <Text
           key={`link-${match.index}`}
           style={[style, { color: '#34B7F1', textDecorationLine: 'underline' }]}
-          onPress={() => Linking.openURL(fullUrl).catch(err => console.error("Couldn't load page", err))}
+          onPress={disabled ? undefined : () => Linking.openURL(fullUrl).catch(err => console.error("Couldn't load page", err))}
         >
           {url}
         </Text>
@@ -120,8 +120,8 @@ const MessageItem = React.memo(({
   chat, 
   userData, 
   handleReply, 
-  selectedMessage,
-  setSelectedMessage,
+  selectedMessages,
+  setSelectedMessages,
   handleReaction,
   REACTIONS 
 }: { 
@@ -130,16 +130,35 @@ const MessageItem = React.memo(({
   chat: any; 
   userData: any; 
   handleReply: (msg: Message) => void; 
-  selectedMessage: Message | null;
-  setSelectedMessage: (msg: Message | null) => void;
+  selectedMessages: string[];
+  setSelectedMessages: React.Dispatch<React.SetStateAction<string[]>>;
   handleReaction: (msgId: string, emoji: string) => void;
   REACTIONS: string[];
 }) => {
   const swipeableRef = useRef<Swipeable>(null);
-  const isSelected = selectedMessage?.id === item.id;
+  const isSelected = selectedMessages.includes(item.id);
+
+  const toggleSelection = () => {
+    if (item.isDeleted) return;
+    
+    if (selectedMessages.length > 0) {
+      if (isSelected) {
+        setSelectedMessages(prev => prev.filter(id => id !== item.id));
+      } else {
+        setSelectedMessages(prev => [...prev, item.id]);
+      }
+    }
+  };
+
+  const onLongPress = () => {
+    if (item.isDeleted) return;
+    if (!isSelected) {
+      setSelectedMessages(prev => [...prev, item.id]);
+    }
+  };
 
   const onSwipeOpen = () => {
-    if (item.isDeleted) {
+    if (item.isDeleted || selectedMessages.length > 0) {
       swipeableRef.current?.close();
       return;
     }
@@ -189,8 +208,8 @@ const MessageItem = React.memo(({
     >
       <TouchableOpacity 
         activeOpacity={1}
-        onPress={() => selectedMessage && setSelectedMessage(null)}
-        onLongPress={() => !item.isDeleted && setSelectedMessage(item)}
+        onPress={toggleSelection}
+        onLongPress={onLongPress}
         style={[
           styles.messageWrapper, 
           isMe ? styles.myMessageWrapper : styles.otherMessageWrapper,
@@ -239,6 +258,7 @@ const MessageItem = React.memo(({
             <TouchableOpacity 
               onPress={handleLinkPress}
               style={styles.linkPreviewContainer}
+              disabled={selectedMessages.length > 0}
             >
               {item.linkPreview.image && (
                 <Image source={{ uri: item.linkPreview.image }} style={styles.linkImage} />
@@ -258,13 +278,9 @@ const MessageItem = React.memo(({
           )}
 
           {item.type === 'image' && !item.isDeleted ? (
-            <TouchableOpacity 
-              activeOpacity={0.9} 
-              onPress={() => Linking.openURL(item.content)}
-              style={styles.messageImageContainer}
-            >
+            <View style={styles.messageImageContainer}>
               <Image source={{ uri: item.content }} style={styles.messageImage} />
-            </TouchableOpacity>
+            </View>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <ClickableText 
@@ -272,7 +288,8 @@ const MessageItem = React.memo(({
                 style={[
                   styles.messageText,
                   item.isDeleted && styles.deletedText
-                ]} 
+                ]}
+                disabled={selectedMessages.length > 0}
               />
               {item.isEdited && !item.isDeleted && (
                 <Text style={styles.editedTag}> (edited)</Text>
@@ -309,7 +326,7 @@ const ChatScreen: React.FC = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   
   const { socket, isConnected } = useSocket();
@@ -598,21 +615,21 @@ const ChatScreen: React.FC = () => {
       emoji,
       chatId: chat._id
     });
-    setSelectedMessage(null);
+    setSelectedMessages([]);
   };
 
   const handleReply = (msg: Message) => {
     setReplyingTo(msg);
-    setSelectedMessage(null);
+    setSelectedMessages([]);
   };
 
   const handleEdit = (msg: Message) => {
     setEditingMessage(msg);
     setMessage(msg.content);
-    setSelectedMessage(null);
+    setSelectedMessages([]);
   };
 
-  const handleDelete = (msg: Message) => {
+  const handleDelete = (msgId: string) => {
     Alert.alert(
       'Delete Message',
       'Are you sure you want to delete this message for everyone?',
@@ -624,11 +641,11 @@ const ChatScreen: React.FC = () => {
           onPress: () => {
             if (socket) {
               socket.emit('delete-message', {
-                messageId: msg.id,
+                messageId: msgId,
                 chatId: chat._id
               });
             }
-            setSelectedMessage(null);
+            setSelectedMessages([]);
           }
         }
       ]
@@ -718,8 +735,8 @@ const ChatScreen: React.FC = () => {
         chat={chat}
         userData={userData}
         handleReply={handleReply}
-        selectedMessage={selectedMessage}
-        setSelectedMessage={setSelectedMessage}
+        selectedMessages={selectedMessages}
+        setSelectedMessages={setSelectedMessages}
         handleReaction={handleReaction}
         REACTIONS={REACTIONS}
       />
@@ -734,23 +751,37 @@ const ChatScreen: React.FC = () => {
     }
   };
 
+  const getFirstSelectedMessage = () => {
+    if (selectedMessages.length === 0) return null;
+    return chatMessages.find(m => m.id === selectedMessages[0]);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
       {/* 1. Header */}
       <SafeAreaView style={styles.header} edges={['top']}>
-        {selectedMessage ? (
+        {selectedMessages.length > 0 ? (
           <View style={styles.headerContent}>
-            <TouchableOpacity onPress={() => setSelectedMessage(null)} style={styles.btn}>
+            <TouchableOpacity onPress={() => setSelectedMessages([])} style={styles.btn}>
               <Ionicons name="close" size={24} color={Colors.text} />
             </TouchableOpacity>
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.name}>1 selected</Text>
+              <Text style={styles.name}>{selectedMessages.length} selected</Text>
             </View>
-            <TouchableOpacity onPress={() => handleReply(selectedMessage)} style={styles.btn}>
-              <Ionicons name="arrow-undo" size={22} color={Colors.text} />
-            </TouchableOpacity>
+            
+            {selectedMessages.length === 1 && (
+              <TouchableOpacity 
+                onPress={() => {
+                  const msg = getFirstSelectedMessage();
+                  if (msg) handleReply(msg);
+                }} 
+                style={styles.btn}
+              >
+                <Ionicons name="arrow-undo" size={22} color={Colors.text} />
+              </TouchableOpacity>
+            )}
             
             <View style={{ position: 'relative' }}>
               <TouchableOpacity onPress={() => setShowHeaderMenu(!showHeaderMenu)} style={styles.btn}>
@@ -759,25 +790,31 @@ const ChatScreen: React.FC = () => {
               
               {showHeaderMenu && (
                 <View style={styles.headerMenu}>
-                  {String(selectedMessage.senderId) === String(userData?._id) && !selectedMessage.isDeleted && (
-                    <>
-                      <TouchableOpacity 
-                        style={styles.menuItem} 
-                        onPress={() => { handleEdit(selectedMessage); setShowHeaderMenu(false); }}
-                      >
-                        <Ionicons name="pencil" size={18} color={Colors.text} />
-                        <Text style={styles.menuText}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.menuItem} 
-                        onPress={() => { handleDelete(selectedMessage); setShowHeaderMenu(false); }}
-                      >
-                        <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-                        <Text style={[styles.menuText, { color: '#FF3B30' }]}>Delete</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                  <TouchableOpacity style={styles.menuItem} onPress={() => { setSelectedMessage(null); setShowHeaderMenu(false); }}>
+                  {selectedMessages.length === 1 && (() => {
+                    const selectedMsg = getFirstSelectedMessage();
+                    if (selectedMsg && String(selectedMsg.senderId) === String(userData?._id) && !selectedMsg.isDeleted) {
+                      return (
+                        <>
+                          <TouchableOpacity 
+                            style={styles.menuItem} 
+                            onPress={() => { handleEdit(selectedMsg); setShowHeaderMenu(false); }}
+                          >
+                            <Ionicons name="pencil" size={18} color={Colors.text} />
+                            <Text style={styles.menuText}>Edit</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.menuItem} 
+                            onPress={() => { handleDelete(selectedMsg.id); setShowHeaderMenu(false); }}
+                          >
+                            <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                            <Text style={[styles.menuText, { color: '#FF3B30' }]}>Delete</Text>
+                          </TouchableOpacity>
+                        </>
+                      );
+                    }
+                    return null;
+                  })()}
+                  <TouchableOpacity style={styles.menuItem} onPress={() => { setSelectedMessages([]); setShowHeaderMenu(false); }}>
                     <Ionicons name="information-circle-outline" size={18} color={Colors.text} />
                     <Text style={styles.menuText}>Info</Text>
                   </TouchableOpacity>
@@ -842,8 +879,16 @@ const ChatScreen: React.FC = () => {
             keyExtractor={(item) => item.id}
             renderItem={renderMessage}
             contentContainerStyle={styles.listContent}
-            onContentSizeChange={() => chatMessages.length > 0 && flatListRef.current?.scrollToEnd({ animated: true })}
-            onLayout={() => chatMessages.length > 0 && flatListRef.current?.scrollToEnd({ animated: false })}
+            onContentSizeChange={(w, h) => {
+              // Only scroll to end when messages change, not on every layout change
+              // Actually FlatList might need this for new messages
+            }}
+            onLayout={() => {
+              // Initial scroll
+              if (chatMessages.length > 0) {
+                flatListRef.current?.scrollToEnd({ animated: false });
+              }
+            }}
             showsVerticalScrollIndicator={true}
             style={{ flex: 1, height: '100%' }}
             removeClippedSubviews={Platform.OS === 'android'}
@@ -902,16 +947,9 @@ const ChatScreen: React.FC = () => {
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
-
-      {selectedMessage && (
-        <TouchableOpacity 
-          style={StyleSheet.absoluteFill} 
-          activeOpacity={1} 
-          onPress={() => setSelectedMessage(null)} 
-        />
-      )}
     </View>
   );
+
 };
 
 const styles = StyleSheet.create({
@@ -933,6 +971,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    zIndex: 1000,
+    elevation: 10,
   },
   headerContent: {
     flexDirection: 'row',
