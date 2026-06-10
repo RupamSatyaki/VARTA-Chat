@@ -173,6 +173,13 @@ module.exports = (io, socket) => {
         });
       });
 
+      // Also emit back to the sender so their UI updates live
+      socket.emit('message-reacted', {
+        messageId,
+        reactions: message.reactions,
+        chatId
+      });
+
       console.log(`😀 Reaction ${emoji} ${existingReactionIndex > -1 ? 'removed from' : 'added to'} message ${messageId}`);
     } catch (error) {
       console.error('❌ Error in add-reaction:', error.message);
