@@ -51,6 +51,8 @@ interface Message {
     url?: string;
     siteName?: string;
   };
+  isEdited?: boolean;
+  isDeleted?: boolean;
 }
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -118,8 +120,8 @@ const MessageItem = React.memo(({
   chat, 
   userData, 
   handleReply, 
-  showReactionFor, 
-  setShowReactionFor, 
+  selectedMessage,
+  setSelectedMessage,
   handleReaction,
   REACTIONS 
 }: { 
@@ -128,15 +130,19 @@ const MessageItem = React.memo(({
   chat: any; 
   userData: any; 
   handleReply: (msg: Message) => void; 
-  showReactionFor: string | null; 
-  setShowReactionFor: (id: string | null) => void; 
+  selectedMessage: Message | null;
+  setSelectedMessage: (msg: Message | null) => void;
   handleReaction: (msgId: string, emoji: string) => void;
   REACTIONS: string[];
 }) => {
   const swipeableRef = useRef<Swipeable>(null);
-  const isReactionVisible = showReactionFor === item.id;
+  const isSelected = selectedMessage?.id === item.id;
 
   const onSwipeOpen = () => {
+    if (item.isDeleted) {
+      swipeableRef.current?.close();
+      return;
+    }
     handleReply(item);
     setTimeout(() => {
       swipeableRef.current?.close();
@@ -150,7 +156,7 @@ const MessageItem = React.memo(({
   };
 
   const renderStatusIcon = () => {
-    if (!isMe || chat.isGroupChat) return null;
+    if (!isMe || chat.isGroupChat || item.isDeleted) return null;
     
     switch (item.status) {
       case 'seen':
@@ -173,24 +179,25 @@ const MessageItem = React.memo(({
   return (
     <Swipeable
       ref={swipeableRef}
-      renderLeftActions={renderActions}
-      renderRightActions={renderActions}
+      renderLeftActions={item.isDeleted ? undefined : renderActions}
+      renderRightActions={item.isDeleted ? undefined : renderActions}
       onSwipeableOpen={onSwipeOpen}
       friction={2}
       leftThreshold={40}
       rightThreshold={40}
-      containerStyle={{ zIndex: isReactionVisible ? 999 : 1 }}
+      containerStyle={{ zIndex: isSelected ? 999 : 1 }}
     >
       <TouchableOpacity 
         activeOpacity={1}
-        onLongPress={() => setShowReactionFor(item.id)}
+        onPress={() => selectedMessage && setSelectedMessage(null)}
+        onLongPress={() => !item.isDeleted && setSelectedMessage(item)}
         style={[
           styles.messageWrapper, 
           isMe ? styles.myMessageWrapper : styles.otherMessageWrapper,
-          isReactionVisible && { zIndex: 1000, elevation: 10 }
+          isSelected && { zIndex: 1000, elevation: 10 }
         ]}
       >
-        {isReactionVisible && (
+        {isSelected && (
           <Animated.View 
             entering={FadeInDown.duration(200)} 
             exiting={FadeOut.duration(150)}
@@ -214,20 +221,21 @@ const MessageItem = React.memo(({
         <View style={[
           styles.messageBubble, 
           isMe ? styles.myBubble : styles.otherBubble,
-          isReactionVisible && styles.activeBubble
+          isSelected && styles.activeBubble,
+          item.isDeleted && styles.deletedBubble
         ]}>
           {!isMe && chat.isGroupChat && item.senderName && (
             <Text style={styles.senderName}>{item.senderName}</Text>
           )}
           
-          {item.replyTo && (
+          {item.replyTo && !item.isDeleted && (
             <View style={styles.replyContext}>
               <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
               <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
             </View>
           )}
 
-          {item.linkPreview && (
+          {item.linkPreview && !item.isDeleted && (
             <TouchableOpacity 
               onPress={handleLinkPress}
               style={styles.linkPreviewContainer}
@@ -249,7 +257,7 @@ const MessageItem = React.memo(({
             </TouchableOpacity>
           )}
 
-          {item.type === 'image' ? (
+          {item.type === 'image' && !item.isDeleted ? (
             <TouchableOpacity 
               activeOpacity={0.9} 
               onPress={() => Linking.openURL(item.content)}
@@ -258,7 +266,18 @@ const MessageItem = React.memo(({
               <Image source={{ uri: item.content }} style={styles.messageImage} />
             </TouchableOpacity>
           ) : (
-            <ClickableText text={item.content} style={styles.messageText} />
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <ClickableText 
+                text={item.content} 
+                style={[
+                  styles.messageText,
+                  item.isDeleted && styles.deletedText
+                ]} 
+              />
+              {item.isEdited && !item.isDeleted && (
+                <Text style={styles.editedTag}> (edited)</Text>
+              )}
+            </View>
           )}
           
           <View style={styles.messageFooter}>
@@ -266,7 +285,7 @@ const MessageItem = React.memo(({
             {renderStatusIcon()}
           </View>
 
-          {item.reactions && item.reactions.length > 0 && (
+          {item.reactions && item.reactions.length > 0 && !item.isDeleted && (
             <View style={styles.messageReactions}>
               {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
                 <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
@@ -290,7 +309,8 @@ const ChatScreen: React.FC = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [showReactionFor, setShowReactionFor] = useState<string | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
@@ -305,7 +325,8 @@ const ChatScreen: React.FC = () => {
     updateMessageId,
     typingStatus,
     setTyping,
-    userStatuses
+    userStatuses,
+    updateMessage
   } = useChatStore();
   
   const chatMessages = messages[chat._id] || [];
@@ -358,6 +379,8 @@ const ChatScreen: React.FC = () => {
           replyTo: m.replyTo,
           reactions: m.reactions,
           linkPreview: m.linkPreview,
+          isEdited: m.isEdited,
+          isDeleted: m.isDeleted,
         }));
         setMessages(chat._id, formattedMessages);
         
@@ -494,6 +517,8 @@ const ChatScreen: React.FC = () => {
             replyTo: newMessage.replyTo,
             reactions: newMessage.reactions || [],
             linkPreview: newMessage.linkPreview,
+            isEdited: newMessage.isEdited,
+            isDeleted: newMessage.isDeleted,
           };
           addMessage(chat._id, formattedMsg);
 
@@ -530,6 +555,18 @@ const ChatScreen: React.FC = () => {
         }
       });
 
+      socket.on('message-updated', (updatedData: any) => {
+        if (updatedData.chatId === chat._id) {
+          updateMessage(chat._id, updatedData.messageId, {
+            content: updatedData.content,
+            isEdited: updatedData.isEdited,
+            isDeleted: updatedData.isDeleted,
+            type: updatedData.type,
+            linkPreview: updatedData.linkPreview
+          });
+        }
+      });
+
       socket.on('typing', ({ chatId, userId }: any) => {
         if (chatId === chat._id) setTyping(chatId, true);
       });
@@ -546,11 +583,12 @@ const ChatScreen: React.FC = () => {
         socket.off('messages-seen');
         socket.off('message-sent');
         socket.off('message-reacted');
+        socket.off('message-updated');
         socket.off('typing');
         socket.off('stop-typing');
       }
     };
-  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, updateMessageReactions, markMessagesAsSeen, updateMessageId, setTyping, chat.isGroupChat]);
+  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, updateMessageReactions, markMessagesAsSeen, updateMessageId, setTyping, chat.isGroupChat, updateMessage]);
 
   const handleReaction = (messageId: string, emoji: string) => {
     if (!socket || !userData) return;
@@ -560,11 +598,41 @@ const ChatScreen: React.FC = () => {
       emoji,
       chatId: chat._id
     });
-    setShowReactionFor(null);
+    setSelectedMessage(null);
   };
 
   const handleReply = (msg: Message) => {
     setReplyingTo(msg);
+    setSelectedMessage(null);
+  };
+
+  const handleEdit = (msg: Message) => {
+    setEditingMessage(msg);
+    setMessage(msg.content);
+    setSelectedMessage(null);
+  };
+
+  const handleDelete = (msg: Message) => {
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message for everyone?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => {
+            if (socket) {
+              socket.emit('delete-message', {
+                messageId: msg.id,
+                chatId: chat._id
+              });
+            }
+            setSelectedMessage(null);
+          }
+        }
+      ]
+    );
   };
 
   const handleTextChange = (text: string) => {
@@ -595,6 +663,24 @@ const ChatScreen: React.FC = () => {
         chatId: chat._id, 
         receiverId: chat.isGroupChat ? null : user._id 
       });
+    }
+
+    if (editingMessage) {
+      socket.emit('edit-message', {
+        messageId: editingMessage.id,
+        newContent: message,
+        chatId: chat._id
+      });
+      
+      // Optimistic update
+      updateMessage(chat._id, editingMessage.id, { 
+        content: message,
+        isEdited: true 
+      });
+      
+      setMessage('');
+      setEditingMessage(null);
+      return;
     }
 
     const newMessage: any = {
@@ -632,8 +718,8 @@ const ChatScreen: React.FC = () => {
         chat={chat}
         userData={userData}
         handleReply={handleReply}
-        showReactionFor={showReactionFor}
-        setShowReactionFor={setShowReactionFor}
+        selectedMessage={selectedMessage}
+        setSelectedMessage={setSelectedMessage}
         handleReaction={handleReaction}
         REACTIONS={REACTIONS}
       />
@@ -654,45 +740,92 @@ const ChatScreen: React.FC = () => {
       
       {/* 1. Header */}
       <SafeAreaView style={styles.header} edges={['top']}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.btn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.text} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.userInfoWrapper} 
-            onPress={handleHeaderPress}
-            activeOpacity={0.7}
-          >
-            <Image 
-              source={{ uri: chat.isGroupChat ? 'https://cdn-icons-png.flaticon.com/512/615/615075.png' : (user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png') }} 
-              style={styles.avatar} 
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name} numberOfLines={1}>{chat.isGroupChat ? chat.chatName : (user.name || user.number)}</Text>
-              <Text style={[
-                styles.status, 
-                (isOtherUserTyping || (otherUserStatus?.status === 'online')) && { color: Colors.primary, fontWeight: 'bold' }
-              ]}>
-                {chat.isGroupChat ? `${chat.users?.length || 0} members` : getStatusText()}
-              </Text>
+        {selectedMessage ? (
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => setSelectedMessage(null)} style={styles.btn}>
+              <Ionicons name="close" size={24} color={Colors.text} />
+            </TouchableOpacity>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.name}>1 selected</Text>
             </View>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleReply(selectedMessage)} style={styles.btn}>
+              <Ionicons name="arrow-undo" size={22} color={Colors.text} />
+            </TouchableOpacity>
+            
+            <View style={{ position: 'relative' }}>
+              <TouchableOpacity onPress={() => setShowHeaderMenu(!showHeaderMenu)} style={styles.btn}>
+                <Ionicons name="ellipsis-vertical" size={22} color={Colors.text} />
+              </TouchableOpacity>
+              
+              {showHeaderMenu && (
+                <View style={styles.headerMenu}>
+                  {selectedMessage.senderId === userData?._id && !selectedMessage.isDeleted && (
+                    <>
+                      <TouchableOpacity 
+                        style={styles.menuItem} 
+                        onPress={() => { handleEdit(selectedMessage); setShowHeaderMenu(false); }}
+                      >
+                        <Ionicons name="pencil" size={18} color={Colors.text} />
+                        <Text style={styles.menuText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.menuItem} 
+                        onPress={() => { handleDelete(selectedMessage); setShowHeaderMenu(false); }}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                        <Text style={[styles.menuText, { color: '#FF3B30' }]}>Delete</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  <TouchableOpacity style={styles.menuItem} onPress={() => { setSelectedMessage(null); setShowHeaderMenu(false); }}>
+                    <Ionicons name="information-circle-outline" size={18} color={Colors.text} />
+                    <Text style={styles.menuText}>Info</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.headerContent}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.btn}>
+              <Ionicons name="arrow-back" size={24} color={Colors.text} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.userInfoWrapper} 
+              onPress={handleHeaderPress}
+              activeOpacity={0.7}
+            >
+              <Image 
+                source={{ uri: chat.isGroupChat ? 'https://cdn-icons-png.flaticon.com/512/615/615075.png' : (user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png') }} 
+                style={styles.avatar} 
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name} numberOfLines={1}>{chat.isGroupChat ? chat.chatName : (user.name || user.number)}</Text>
+                <Text style={[
+                  styles.status, 
+                  (isOtherUserTyping || (otherUserStatus?.status === 'online')) && { color: Colors.primary, fontWeight: 'bold' }
+                ]}>
+                  {chat.isGroupChat ? `${chat.users?.length || 0} members` : getStatusText()}
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.btn} 
-            onPress={() => initiateCall(user._id, user.name || user.number, user.profilePic, 'video')}
-          >
-            <Ionicons name="videocam" size={22} color={Colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.btn} 
-            onPress={() => initiateCall(user._id, user.name || user.number, user.profilePic, 'audio')}
-          >
-            <Ionicons name="call" size={20} color={Colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btn}><Ionicons name="ellipsis-vertical" size={20} color={Colors.text} /></TouchableOpacity>
-        </View>
+            <TouchableOpacity 
+              style={styles.btn} 
+              onPress={() => initiateCall(user._id, user.name || user.number, user.profilePic, 'video')}
+            >
+              <Ionicons name="videocam" size={22} color={Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.btn} 
+              onPress={() => initiateCall(user._id, user.name || user.number, user.profilePic, 'audio')}
+            >
+              <Ionicons name="call" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.btn}><Ionicons name="ellipsis-vertical" size={20} color={Colors.text} /></TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
 
       {/* 2. Main Content Area (Chat + Input) wrapped in KeyboardAvoidingView */}
@@ -732,6 +865,18 @@ const ChatScreen: React.FC = () => {
               </TouchableOpacity>
             </Animated.View>
           )}
+          {editingMessage && (
+            <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.replyPreview}>
+              <View style={[styles.replyBar, { backgroundColor: Colors.secondary }]} />
+              <View style={styles.replyPreviewContent}>
+                <Text style={[styles.replySender, { color: Colors.secondary }]}>Edit Message</Text>
+                <Text style={styles.replyPreviewText} numberOfLines={1}>{editingMessage.content}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setEditingMessage(null); setMessage(''); }} style={styles.closeReply}>
+                <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
           <View style={styles.footer}>
             <View style={styles.inputBox}>
               <TouchableOpacity style={styles.btn}><Ionicons name="happy-outline" size={24} color={Colors.textSecondary} /></TouchableOpacity>
@@ -758,11 +903,11 @@ const ChatScreen: React.FC = () => {
         </SafeAreaView>
       </KeyboardAvoidingView>
 
-      {showReactionFor && (
+      {selectedMessage && (
         <TouchableOpacity 
           style={StyleSheet.absoluteFill} 
           activeOpacity={1} 
-          onPress={() => setShowReactionFor(null)} 
+          onPress={() => setSelectedMessage(null)} 
         />
       )}
     </View>
@@ -837,6 +982,14 @@ const styles = StyleSheet.create({
   },
   otherMessageWrapper: {
     alignSelf: 'flex-start',
+  },
+  messageContainer: {
+    position: 'relative',
+    paddingHorizontal: 10,
+    width: '100%',
+  },
+  selectedMessageContainer: {
+    backgroundColor: 'rgba(52, 183, 241, 0.1)',
   },
   messageBubble: {
     paddingHorizontal: 12,
@@ -977,8 +1130,8 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     position: 'absolute',
     top: -55, // Positioned above the bubble
-    zIndex: 9999,
-    elevation: 20, // Max elevation for Android
+    zIndex: 10000,
+    elevation: 25, // Increased elevation
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
@@ -993,6 +1146,49 @@ const styles = StyleSheet.create({
   },
   reactionEmoji: {
     fontSize: 26,
+  },
+  headerMenu: {
+    position: 'absolute',
+    top: 45,
+    right: 0,
+    backgroundColor: '#2C2C2C',
+    borderRadius: 8,
+    padding: 8,
+    width: 150,
+    zIndex: 10000,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  menuText: {
+    color: Colors.text,
+    fontSize: 16,
+    marginLeft: 12,
+  },
+  deletedBubble: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderStyle: 'dashed',
+  },
+  deletedText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontStyle: 'italic',
+    fontSize: 13,
+  },
+  editedTag: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.4)',
+    fontStyle: 'italic',
+    marginBottom: 2,
   },
   replyActionContainer: {
     width: 50,
