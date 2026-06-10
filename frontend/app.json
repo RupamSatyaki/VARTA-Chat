@@ -10,8 +10,9 @@
       "bundleIdentifier": "com.varta.app",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "VARTA needs access to your camera for video calls.",
-        "NSMicrophoneUsageDescription": "VARTA needs access to your microphone for audio calls."
+        "NSCameraUsageDescription": "VARTA needs access to your camera for video calls and taking photos.",
+        "NSMicrophoneUsageDescription": "VARTA needs access to your microphone for audio calls.",
+        "NSPhotoLibraryUsageDescription": "VARTA needs access to your photos to let you share them with friends."
       }
     },
     "android": {
@@ -25,12 +26,20 @@
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
+        "MODIFY_AUDIO_SETTINGS",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ],
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your contacts."
+        }
+      ]
     ],
     "extra": {
       "eas": {
