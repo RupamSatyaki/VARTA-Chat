@@ -1,28 +1,64 @@
-import React from 'react';
-import { StyleSheet, View, Text, ScrollView, Image, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../../../../theme/colors';
+import apiClient from '../../../../api/apiClient';
 
-const DUMMY_MEDIA = [
-  'https://images.unsplash.com/photo-1557683316-973673baf926?w=200',
-  'https://images.unsplash.com/photo-1557683311-eac922347aa1?w=200',
-  'https://images.unsplash.com/photo-1557683304-673a23048d34?w=200',
-];
+const MediaGallery: React.FC<{ chatId: string }> = ({ chatId }) => {
+  const navigation = useNavigation();
+  const [media, setMedia] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
 
-const MediaGallery: React.FC = () => {
+  useEffect(() => {
+    const fetchMedia = async () => {
+      try {
+        const response = await apiClient.get(`/messages/media/${chatId}`);
+        if (response.data.success) {
+          setMedia(response.data.data.media.slice(0, 5));
+          const { media: m, links, docs } = response.data.data;
+          setTotalCount(m.length + links.length + docs.length);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMedia();
+  }, [chatId]);
+
+  if (loading) {
+    return <ActivityIndicator style={{ marginVertical: 20 }} color={Colors.primary} />;
+  }
+
+  if (media.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No media shared yet</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView 
       horizontal 
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
     >
-      {DUMMY_MEDIA.map((url, index) => (
-        <TouchableOpacity key={index} style={styles.mediaItem} activeOpacity={0.8}>
-          <Image source={{ uri: url }} style={styles.image} />
+      {media.map((item, index) => (
+        <TouchableOpacity key={item._id} style={styles.mediaItem} activeOpacity={0.8}>
+          <Image source={{ uri: item.content }} style={styles.image} />
         </TouchableOpacity>
       ))}
-      <TouchableOpacity style={styles.moreItem}>
-        <Text style={styles.moreText}>+12</Text>
-      </TouchableOpacity>
+      {totalCount > 5 && (
+        <TouchableOpacity 
+          style={styles.moreItem}
+          onPress={() => navigation.navigate('SharedMedia' as never, { chatId } as never)}
+        >
+          <Text style={styles.moreText}>+{totalCount - 5}</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 };
@@ -31,6 +67,14 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
     paddingVertical: 5,
+  },
+  emptyContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  emptyText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
   },
   mediaItem: {
     width: 90,

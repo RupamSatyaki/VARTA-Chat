@@ -10,6 +10,7 @@ import SettingsScreen from '../screens/main/SettingsScreen';
 import UserProfileScreen from '../screens/main/UserProfileScreen';
 import CreateGroupScreen from '../screens/main/CreateGroupScreen';
 import GroupInfoScreen from '../screens/main/GroupInfoScreen';
+import SharedMediaScreen from '../screens/main/SharedMediaScreen';
 import TabNavigator from './TabNavigator';
 import { Colors } from '../theme/colors';
 
@@ -56,6 +57,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="UserProfile" component={UserProfileScreen} />
             <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
             <Stack.Screen name="GroupInfo" component={GroupInfoScreen} />
+            <Stack.Screen name="SharedMedia" component={SharedMediaScreen} />
           </>
         )}
       </Stack.Navigator>

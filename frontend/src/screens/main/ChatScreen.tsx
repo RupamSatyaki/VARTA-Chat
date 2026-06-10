@@ -529,7 +529,7 @@ const ChatScreen: React.FC = () => {
     if (chat.isGroupChat) {
       navigation.navigate('GroupInfo' as never, { chat } as never);
     } else {
-      navigation.navigate('UserProfile' as never, { user } as never);
+      navigation.navigate('UserProfile' as never, { user, chat } as never);
     }
   };
 

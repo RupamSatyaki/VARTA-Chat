@@ -14,13 +14,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
+import apiClient from '../../api/apiClient';
+import { SectionHeader } from './GroupInfo/components/InfoComponents';
+import MediaGallery from './GroupInfo/components/MediaGallery';
 
 const { width } = Dimensions.get('window');
 
 const UserProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
-  const { user } = route.params;
+  const { user, chat } = route.params;
+  const [mediaCount, setMediaCount] = React.useState(0);
+
+  const fetchMediaCount = async () => {
+    if (!chat?._id) return;
+    try {
+      const response = await apiClient.get(`/messages/media/${chat._id}`);
+      if (response.data.success) {
+        const { media, links, docs } = response.data.data;
+        setMediaCount(media.length + links.length + docs.length);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchMediaCount();
+  }, [chat?._id]);
 
   const renderInfoItem = (icon: any, label: string, value: string) => (
     <View style={styles.infoItem}>
@@ -85,14 +106,19 @@ const UserProfileScreen: React.FC = () => {
 
           <View style={styles.divider} />
 
-          {/* Shared Media / Actions */}
+          {/* Shared Media Section */}
+          <SectionHeader 
+            title="Media, Links, and Docs" 
+            count={mediaCount} 
+            onPress={() => navigation.navigate('SharedMedia' as never, { chatId: chat?._id, chatName: user.name || user.number } as never)}
+          />
+          <MediaGallery chatId={chat?._id} />
+
+          <View style={styles.divider} />
+
+          {/* Actions Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Actions</Text>
-            <TouchableOpacity style={styles.actionItem}>
-              <Ionicons name="images-outline" size={22} color={Colors.textSecondary} />
-              <Text style={styles.actionText}>Shared Media</Text>
-              <Ionicons name="chevron-forward" size={18} color={Colors.gray} />
-            </TouchableOpacity>
             
             <TouchableOpacity style={styles.actionItem}>
               <Ionicons name="ban-outline" size={22} color={Colors.error} />

@@ -107,8 +107,49 @@ const getChatMessages = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get shared media, links, and docs for a specific chat
+ * @route   GET /api/messages/media/:chatId
+ * @access  Private
+ */
+const getChatMedia = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    const messages = await Message.find({ 
+      chat: chatId,
+      $or: [
+        { type: 'image' },
+        { type: 'file' },
+        { type: 'document' },
+        { linkPreview: { $ne: null } }
+      ]
+    }).sort({ createdAt: -1 });
+
+    const media = messages.filter(m => m.type === 'image');
+    const links = messages.filter(m => m.linkPreview && m.linkPreview.url);
+    const docs = messages.filter(m => m.type === 'file' || m.type === 'document');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        media,
+        links,
+        docs
+      }
+    });
+  } catch (error) {
+    console.error(`❌ Error in getChatMedia: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
+  }
+};
+
 module.exports = {
   sendMessage,
   getMessages,
-  getChatMessages
+  getChatMessages,
+  getChatMedia
 };

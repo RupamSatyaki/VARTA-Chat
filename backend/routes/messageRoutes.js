@@ -13,6 +13,11 @@ router.get('/:chatId', authMiddleware, messageController.getChatMessages);
 // @access  Private
 router.get('/:senderId/:receiverId', authMiddleware, messageController.getMessages);
 
+// @route   GET /api/messages/media/:chatId
+// @desc    Get shared media, links, and docs for a specific chat
+// @access  Private
+router.get('/media/:chatId', authMiddleware, messageController.getChatMedia);
+
 // @route   POST /api/messages
 // @desc    Send a new message
 // @access  Private

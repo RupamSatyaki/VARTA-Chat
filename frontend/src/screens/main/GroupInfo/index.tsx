@@ -44,6 +44,7 @@ const GroupInfoScreen: React.FC = () => {
   const { userData } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [mediaCount, setMediaCount] = useState(0);
 
   const scrollY = useSharedValue(0);
 
@@ -60,6 +61,22 @@ const GroupInfoScreen: React.FC = () => {
       console.error(error);
     }
   };
+
+  const fetchMediaCount = async () => {
+    try {
+      const response = await apiClient.get(`/messages/media/${chat._id}`);
+      if (response.data.success) {
+        const { media, links, docs } = response.data.data;
+        setMediaCount(media.length + links.length + docs.length);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchMediaCount();
+  }, [chat._id]);
 
   const adminId = typeof chat.groupAdmin === 'object' ? chat.groupAdmin._id : chat.groupAdmin;
   const isAdmin = adminId === userData?._id;
@@ -183,8 +200,12 @@ const GroupInfoScreen: React.FC = () => {
           </InfoCard>
 
           {/* Shared Media Section */}
-          <SectionHeader title="Media, Links, and Docs" count={17} />
-          <MediaGallery />
+          <SectionHeader 
+            title="Media, Links, and Docs" 
+            count={mediaCount} 
+            onPress={() => navigation.navigate('SharedMedia' as never, { chatId: chat._id, chatName: chat.chatName } as never)}
+          />
+          <MediaGallery chatId={chat._id} />
 
           {/* Settings Section */}
           <View style={styles.settingsGroup}>
