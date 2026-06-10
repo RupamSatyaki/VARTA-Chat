@@ -3,6 +3,11 @@ const router = express.Router();
 const messageController = require('../controllers/messageController');
 const authMiddleware = require('../middleware/authMiddleware');
 
+// @route   GET /api/messages/media/:chatId
+// @desc    Get shared media, links, and docs for a specific chat
+// @access  Private
+router.get('/media/:chatId', authMiddleware, messageController.getChatMedia);
+
 // @route   GET /api/messages/:chatId
 // @desc    Get all messages for a specific chat
 // @access  Private
@@ -12,11 +17,6 @@ router.get('/:chatId', authMiddleware, messageController.getChatMessages);
 // @desc    Get all messages between two users (Legacy)
 // @access  Private
 router.get('/:senderId/:receiverId', authMiddleware, messageController.getMessages);
-
-// @route   GET /api/messages/media/:chatId
-// @desc    Get shared media, links, and docs for a specific chat
-// @access  Private
-router.get('/media/:chatId', authMiddleware, messageController.getChatMedia);
 
 // @route   POST /api/messages
 // @desc    Send a new message
