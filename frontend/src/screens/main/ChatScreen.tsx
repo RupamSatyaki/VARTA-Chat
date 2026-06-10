@@ -32,6 +32,7 @@ import apiClient from '../../api/apiClient';
 interface Message {
   id: string;
   content: string;
+  type?: 'text' | 'image' | 'file' | 'document';
   senderId: string;
   senderName?: string;
   receiverId?: string;
@@ -288,6 +289,7 @@ const ChatScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [showReactionFor, setShowReactionFor] = useState<string | null>(null);
   
   const { socket, isConnected } = useSocket();
@@ -379,25 +381,25 @@ const ChatScreen: React.FC = () => {
     // Safety check for native module availability
     if (!ImagePicker.launchImageLibraryAsync) {
       Alert.alert(
-        'Module Not Found',
-        'The Image Picker native module is missing. If you are using a development build, please run "npx expo run:android" or "npx expo run:ios" to rebuild the app.'
+        'Build Required',
+        'Image Picker requires a native build. Please run "npx expo run:android" in your terminal to install the full VARTA app on your phone.'
       );
       return;
     }
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      Alert.alert('Permission Denied', 'We need access to your photos to send images.');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.8,
+      quality: 0.7, // Slightly lower for faster uploads
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       handleImageUpload(result.assets[0].uri);
     }
   };
@@ -405,30 +407,40 @@ const ChatScreen: React.FC = () => {
   const handleImageUpload = async (uri: string) => {
     try {
       setUploadingImage(true);
+      console.log('📸 Starting upload for:', uri);
+
       const formData = new FormData();
-      
       const filename = uri.split('/').pop() || 'image.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image/jpg`;
 
+      // @ts-ignore - FormData needs this specific structure in React Native
       formData.append('image', {
         uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
         name: filename,
         type: type,
-      } as any);
+      });
 
+      console.log('📤 Sending FormData to backend...');
+
+      // Note: We DON'T manually set 'Content-Type' to let Axios handle boundaries correctly
       const response = await apiClient.post('/messages/upload', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json',
+        },
+        transformRequest: (data, headers) => {
+          return data; // Prevents Axios from stringifying FormData
         },
       });
+
+      console.log('📥 Backend Response:', response.data);
 
       if (response.data.success) {
         sendImageMessage(response.data.url);
       }
-    } catch (error) {
-      console.error('Upload error:', error);
-      Alert.alert('Error', 'Failed to upload image');
+    } catch (error: any) {
+      console.error('❌ Upload error details:', error.response?.data || error.message);
+      Alert.alert('Upload Failed', error.response?.data?.message || 'Server connection issue');
     } finally {
       setUploadingImage(false);
     }

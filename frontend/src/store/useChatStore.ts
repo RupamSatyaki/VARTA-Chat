@@ -3,6 +3,7 @@ import { create } from 'zustand';
 interface Message {
   id: string;
   content: string;
+  type?: 'text' | 'image' | 'file' | 'document';
   senderId: string;
   senderName?: string;
   receiverId?: string;
@@ -22,6 +23,8 @@ interface Message {
     url?: string;
     siteName?: string;
   };
+  isEdited?: boolean;
+  isDeleted?: boolean;
 }
 
 interface Chat {
@@ -42,6 +45,7 @@ interface ChatState {
   setChats: (chats: Chat[]) => void;
   setMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
+  updateMessage: (chatId: string, messageId: string, updates: Partial<Message>) => void;
   updateMessageId: (chatId: string, tempId: string, realId: string, newData?: Partial<Message>) => void;
   updateMessageStatus: (chatId: string, messageId: string, status: 'sent' | 'delivered' | 'seen') => void;
   updateMessageReactions: (chatId: string, messageId: string, reactions: { user: string; emoji: string }[]) => void;
@@ -117,6 +121,17 @@ export const useChatStore = create<ChatState>((set) => ({
       };
     }),
 
+  updateMessage: (chatId, messageId, updates) =>
+    set((state) => {
+      const chatMessages = state.messages[chatId] || [];
+      const updatedMessages = chatMessages.map((m) =>
+        m.id === messageId ? { ...m, ...updates } : m
+      );
+      return {
+        messages: { ...state.messages, [chatId]: updatedMessages }
+      };
+    }),
+
   updateMessageId: (chatId, tempId, realId, newData) =>
     set((state) => {
       const chatMessages = state.messages[chatId] || [];
@@ -172,6 +187,7 @@ export const useChatStore = create<ChatState>((set) => ({
       targetChat.latestMessage = {
         _id: messageData._id,
         content: messageData.content,
+        type: messageData.type || 'text',
         status: messageData.status || 'sent',
         createdAt: messageData.createdAt || new Date().toISOString(),
         sender: {
