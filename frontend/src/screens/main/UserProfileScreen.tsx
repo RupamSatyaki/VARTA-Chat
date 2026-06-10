@@ -5,7 +5,6 @@ import {
   Text, 
   Image, 
   TouchableOpacity, 
-  ScrollView, 
   StatusBar,
   Dimensions,
   Platform
@@ -17,14 +16,38 @@ import { Colors } from '../../theme/colors';
 import apiClient from '../../api/apiClient';
 import { SectionHeader } from './GroupInfo/components/InfoComponents';
 import MediaGallery from './GroupInfo/components/MediaGallery';
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
+const HEADER_SCROLL_THRESHOLD = 220;
 
 const UserProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const { user, chat } = route.params;
   const [mediaCount, setMediaCount] = React.useState(0);
+
+  const scrollY = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
+  // Sticky header fades in after threshold
+  const stickyHeaderStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [HEADER_SCROLL_THRESHOLD - 40, HEADER_SCROLL_THRESHOLD], [0, 1], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: interpolate(scrollY.value, [HEADER_SCROLL_THRESHOLD - 40, HEADER_SCROLL_THRESHOLD], [-10, 0], Extrapolation.CLAMP),
+      },
+    ],
+  }));
 
   const fetchMediaCount = async () => {
     if (!chat?._id) return;
@@ -59,7 +82,21 @@ const UserProfileScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
-      <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+      {/* Sticky animated header — appears on scroll */}
+      <Animated.View style={[styles.stickyHeader, stickyHeaderStyle]} pointerEvents="box-none">
+        <SafeAreaView edges={['top']} style={styles.stickyHeaderInner}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.stickyBackBtn}>
+            <Ionicons name="arrow-back" size={22} color={Colors.white} />
+          </TouchableOpacity>
+          <Image
+            source={{ uri: user.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }}
+            style={styles.stickyAvatar}
+          />
+          <Text style={styles.stickyName} numberOfLines={1}>{user.name || 'User'}</Text>
+        </SafeAreaView>
+      </Animated.View>
+
+      <Animated.ScrollView onScroll={scrollHandler} scrollEventThrottle={16} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Profile Image & Back Button Header */}
         <View style={styles.imageHeader}>
           <Image 
@@ -131,7 +168,7 @@ const UserProfileScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 };
@@ -256,6 +293,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
     marginLeft: 15,
+  },
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  stickyHeaderInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  stickyBackBtn: {
+    padding: 8,
+    marginRight: 4,
+  },
+  stickyAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  stickyName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
   },
 });
 
