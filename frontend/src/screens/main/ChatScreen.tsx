@@ -472,26 +472,33 @@ const ChatScreen: React.FC = () => {
       console.log('📸 Starting upload for:', uri);
 
       const formData = new FormData();
-      const filename = uri.split('/').pop() || 'image.jpg';
+      const filename = uri.split('/').pop()?.split('?')[0] || 'image.jpg';
       const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpg`;
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      // @ts-ignore - FormData needs this specific structure in React Native
-      formData.append('image', {
-        uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
-        name: filename,
-        type: type,
-      });
+      if (Platform.OS === 'web') {
+        // On web, uri is a blob/data URL — fetch it and convert to File
+        const res = await fetch(uri);
+        const blob = await res.blob();
+        const file = new File([blob], filename, { type: blob.type || type });
+        formData.append('image', file);
+      } else {
+        // Native: use the RN-specific object structure
+        // @ts-ignore
+        formData.append('image', {
+          uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
+          name: filename,
+          type,
+        });
+      }
 
       console.log('📤 Sending FormData to backend...');
 
-      // Note: We DON'T manually set 'Content-Type' to let Axios handle boundaries correctly
       const response = await apiClient.post('/messages/upload', formData, {
-        headers: {
-          'Accept': 'application/json',
-        },
+        headers: { 'Accept': 'application/json' },
         transformRequest: (data, headers) => {
-          return data; // Prevents Axios from stringifying FormData
+          delete headers['Content-Type']; // Let browser set boundary automatically
+          return data;
         },
       });
 
