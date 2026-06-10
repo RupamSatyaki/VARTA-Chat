@@ -57,6 +57,13 @@ const messageSchema = new mongoose.Schema({
       emoji: { type: String },
     },
   ],
+  linkPreview: {
+    title: { type: String },
+    description: { type: String },
+    image: { type: String },
+    url: { type: String },
+    siteName: { type: String },
+  },
 }, {
   timestamps: true,
 });

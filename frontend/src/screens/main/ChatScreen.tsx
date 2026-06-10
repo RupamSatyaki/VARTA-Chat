@@ -10,7 +10,8 @@ import {
   TouchableOpacity,
   Image,
   KeyboardAvoidingView,
-  FlatList
+  FlatList,
+  Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +41,13 @@ interface Message {
     sender: { _id: string; name: string };
   };
   reactions?: { user: string; emoji: string }[];
+  linkPreview?: {
+    title?: string;
+    description?: string;
+    image?: string;
+    url?: string;
+    siteName?: string;
+  };
 }
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -73,6 +81,12 @@ const MessageItem = React.memo(({
     setTimeout(() => {
       swipeableRef.current?.close();
     }, 100);
+  };
+
+  const handleLinkPress = () => {
+    if (item.linkPreview?.url) {
+      Linking.openURL(item.linkPreview.url).catch(err => console.error("Couldn't load page", err));
+    }
   };
 
   const renderStatusIcon = () => {
@@ -151,6 +165,28 @@ const MessageItem = React.memo(({
               <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
               <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
             </View>
+          )}
+
+          {item.linkPreview && (
+            <TouchableOpacity 
+              onPress={handleLinkPress}
+              style={styles.linkPreviewContainer}
+            >
+              {item.linkPreview.image && (
+                <Image source={{ uri: item.linkPreview.image }} style={styles.linkImage} />
+              )}
+              <View style={styles.linkTextContainer}>
+                {item.linkPreview.siteName && (
+                  <Text style={styles.linkSiteName}>{item.linkPreview.siteName}</Text>
+                )}
+                {item.linkPreview.title && (
+                  <Text style={styles.linkTitle} numberOfLines={2}>{item.linkPreview.title}</Text>
+                )}
+                {item.linkPreview.description && (
+                  <Text style={styles.linkDescription} numberOfLines={2}>{item.linkPreview.description}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
           )}
 
           <Text style={styles.messageText}>{item.content}</Text>
@@ -248,6 +284,7 @@ const ChatScreen: React.FC = () => {
           timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           replyTo: m.replyTo,
           reactions: m.reactions,
+          linkPreview: m.linkPreview,
         }));
         setMessages(chat._id, formattedMessages);
         
@@ -285,6 +322,7 @@ const ChatScreen: React.FC = () => {
             timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             replyTo: newMessage.replyTo,
             reactions: newMessage.reactions || [],
+            linkPreview: newMessage.linkPreview,
           };
           addMessage(chat._id, formattedMsg);
 
@@ -679,6 +717,39 @@ const styles = StyleSheet.create({
   replyContent: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
+  },
+  linkPreviewContainer: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  linkImage: {
+    width: '100%',
+    height: 120,
+    resizeMode: 'cover',
+  },
+  linkTextContainer: {
+    padding: 10,
+  },
+  linkSiteName: {
+    fontSize: 10,
+    color: Colors.primary,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  linkTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: Colors.white,
+    marginBottom: 4,
+  },
+  linkDescription: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
   },
   messageReactions: {
     flexDirection: 'row',

@@ -15,6 +15,13 @@ interface Message {
     sender: { _id: string; name: string };
   };
   reactions?: { user: string; emoji: string }[];
+  linkPreview?: {
+    title?: string;
+    description?: string;
+    image?: string;
+    url?: string;
+    siteName?: string;
+  };
 }
 
 interface Chat {

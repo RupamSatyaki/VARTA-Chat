@@ -1,12 +1,46 @@
 const Message = require('../models/Message');
 const Chat = require('../models/Chat');
 const User = require('../models/User');
+const { getLinkPreview } = require('link-preview-js');
 
 /**
  * Chat-related Socket event handlers
  */
 module.exports = (io, socket) => {
   
+  // Helper to extract URL from text
+  const extractUrl = (text) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const matches = text.match(urlRegex);
+    return matches ? matches[0] : null;
+  };
+
+  // Helper to fetch link preview
+  const fetchLinkPreviewData = async (url) => {
+    try {
+      const data = await getLinkPreview(url, {
+        timeout: 3000,
+        headers: {
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
+        },
+      });
+      
+      if (data && (data.title || data.description)) {
+        return {
+          title: data.title,
+          description: data.description,
+          image: data.images && data.images.length > 0 ? data.images[0] : (data.favicons && data.favicons.length > 0 ? data.favicons[0] : null),
+          url: data.url,
+          siteName: data.siteName,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching link preview:', error.message);
+      return null;
+    }
+  };
+
   // Join a private chat room
   const joinChat = (room) => {
     socket.join(room);
@@ -26,6 +60,13 @@ module.exports = (io, socket) => {
       const chat = await Chat.findById(chatId).populate("users", "_id");
       if (!chat) return console.log('❌ Chat not found');
 
+      // Check for link preview
+      let linkPreviewData = null;
+      const url = extractUrl(content);
+      if (url && (type === 'text' || !type)) {
+        linkPreviewData = await fetchLinkPreviewData(url);
+      }
+
       // Save message to database
       const message = await Message.create({
         sender: senderId,
@@ -34,6 +75,7 @@ module.exports = (io, socket) => {
         status: 'sent',
         chat: chatId,
         replyTo: replyTo || null,
+        linkPreview: linkPreviewData,
         // For 1-on-1, receiver is the other user. For group, it can be null.
         receiver: chat.isGroupChat ? null : chat.users.find(u => u._id.toString() !== senderId.toString())?._id,
         readBy: [senderId] // Sender has obviously read their own message
@@ -71,7 +113,8 @@ module.exports = (io, socket) => {
           senderName: sender?.name,
           senderNumber: sender?.number,
           status: 'sent',
-          replyTo: populatedMessage.replyTo
+          replyTo: populatedMessage.replyTo,
+          linkPreview: linkPreviewData
         });
       });
       
