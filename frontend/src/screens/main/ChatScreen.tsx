@@ -335,7 +335,9 @@ const ChatScreen: React.FC = () => {
       });
 
       socket.on('message-sent', ({ tempId, message: savedMsg }: any) => {
-        updateMessageId(chat._id, tempId, savedMsg._id);
+        updateMessageId(chat._id, tempId, savedMsg._id, {
+          linkPreview: savedMsg.linkPreview
+        });
       });
 
       socket.on('message-status-updated', ({ messageId, chatId, status }: any) => {

@@ -42,7 +42,7 @@ interface ChatState {
   setChats: (chats: Chat[]) => void;
   setMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
-  updateMessageId: (chatId: string, tempId: string, realId: string) => void;
+  updateMessageId: (chatId: string, tempId: string, realId: string, newData?: Partial<Message>) => void;
   updateMessageStatus: (chatId: string, messageId: string, status: 'sent' | 'delivered' | 'seen') => void;
   updateMessageReactions: (chatId: string, messageId: string, reactions: { user: string; emoji: string }[]) => void;
   markMessagesAsSeen: (chatId: string, senderId: string) => void;
@@ -117,11 +117,11 @@ export const useChatStore = create<ChatState>((set) => ({
       };
     }),
 
-  updateMessageId: (chatId, tempId, realId) =>
+  updateMessageId: (chatId, tempId, realId, newData) =>
     set((state) => {
       const chatMessages = state.messages[chatId] || [];
       const updatedMessages = chatMessages.map((m) =>
-        m.id === tempId ? { ...m, id: realId } : m
+        m.id === tempId ? { ...m, id: realId, ...newData } : m
       );
       return {
         messages: { ...state.messages, [chatId]: updatedMessages }
