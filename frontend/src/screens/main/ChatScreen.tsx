@@ -248,7 +248,17 @@ const MessageItem = React.memo(({
             </TouchableOpacity>
           )}
 
-          <ClickableText text={item.content} style={styles.messageText} />
+          {item.type === 'image' ? (
+            <TouchableOpacity 
+              activeOpacity={0.9} 
+              onPress={() => Linking.openURL(item.content)}
+              style={styles.messageImageContainer}
+            >
+              <Image source={{ uri: item.content }} style={styles.messageImage} />
+            </TouchableOpacity>
+          ) : (
+            <ClickableText text={item.content} style={styles.messageText} />
+          )}
           
           <View style={styles.messageFooter}>
             <Text style={styles.timestamp}>{item.timestamp}</Text>
@@ -863,6 +873,19 @@ const styles = StyleSheet.create({
   replyContent: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
+  },
+  messageImageContainer: {
+    width: 240,
+    height: 180,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 4,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  messageImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   linkPreviewContainer: {
     backgroundColor: 'rgba(0,0,0,0.2)',
