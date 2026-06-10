@@ -349,6 +349,7 @@ const ChatScreen: React.FC = () => {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
@@ -900,6 +901,12 @@ const ChatScreen: React.FC = () => {
             keyExtractor={(item) => item.id}
             renderItem={renderMessage}
             contentContainerStyle={styles.listContent}
+            onScroll={(e) => {
+              const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+              const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+              setShowScrollDown(distanceFromBottom > 200);
+            }}
+            scrollEventThrottle={100}
             onContentSizeChange={(w, h) => {
               // Only scroll to end when messages change, not on every layout change
               // Actually FlatList might need this for new messages
@@ -915,6 +922,13 @@ const ChatScreen: React.FC = () => {
             removeClippedSubviews={Platform.OS === 'android'}
             keyboardShouldPersistTaps="handled"
           />
+          {showScrollDown && (
+            <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.scrollDownBtn}>
+              <TouchableOpacity onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}>
+                <Ionicons name="chevron-down" size={22} color={Colors.white} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
         </View>
 
         {/* 3. Footer Input */}
@@ -1332,7 +1346,23 @@ const styles = StyleSheet.create({
   },
   loader: {
     paddingVertical: 20,
-  }
+  },
+  scrollDownBtn: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
 });
 
 export default ChatScreen;
