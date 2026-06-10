@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 import apiClient from '../../api/apiClient';
+import { useChatStore } from '../../store/useChatStore';
 import { SectionHeader } from './GroupInfo/components/InfoComponents';
 import MediaGallery from './GroupInfo/components/MediaGallery';
 import Animated, {
@@ -32,6 +33,26 @@ const UserProfileScreen: React.FC = () => {
   const route = useRoute<any>();
   const { user, chat } = route.params;
   const [mediaCount, setMediaCount] = React.useState(0);
+
+  const { userStatuses } = useChatStore();
+  const otherUserStatus = userStatuses[user._id];
+
+  const getStatusText = () => {
+    if (otherUserStatus?.status === 'online') return 'Online';
+    if (otherUserStatus?.lastSeen || user.lastSeen) {
+      const lastSeen = otherUserStatus?.lastSeen || user.lastSeen;
+      const date = new Date(lastSeen);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffMins < 1) return 'last seen just now';
+      if (diffMins < 60) return `last seen ${diffMins}m ago`;
+      if (diffHours < 24) return `last seen ${diffHours}h ago`;
+      return `last seen ${date.toLocaleDateString()}`;
+    }
+    return 'Offline';
+  };
 
   const scrollY = useSharedValue(0);
 
@@ -116,7 +137,12 @@ const UserProfileScreen: React.FC = () => {
             
             <View style={styles.nameContainer}>
               <Text style={styles.userName}>{user.name || 'User'}</Text>
-              <Text style={styles.userStatus}>Online</Text>
+              <Text style={[
+                styles.userStatus,
+                otherUserStatus?.status === 'online' && { color: '#4ade80' }
+              ]}>
+                {getStatusText()}
+              </Text>
             </View>
           </View>
         </View>
