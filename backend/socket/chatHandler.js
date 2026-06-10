@@ -264,6 +264,60 @@ module.exports = (io, socket) => {
     }
   };
 
+  // Edit an existing message
+  const editMessage = async ({ messageId, newContent, chatId }) => {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) return;
+
+      // Only the sender can edit their message
+      if (message.sender.toString() !== socket.userId.toString()) return;
+
+      message.content = newContent;
+      message.isEdited = true;
+      await message.save();
+
+      io.in(chatId).emit('message-updated', {
+        messageId,
+        content: newContent,
+        isEdited: true,
+        chatId
+      });
+      console.log(`✏️ Message ${messageId} edited`);
+    } catch (error) {
+      console.error('❌ Error editing message:', error.message);
+    }
+  };
+
+  // Delete a message for everyone
+  const deleteMessage = async ({ messageId, chatId }) => {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) return;
+
+      // Only the sender should delete for everyone
+      if (message.sender.toString() !== socket.userId.toString()) return;
+
+      message.content = "This message was deleted";
+      message.isDeleted = true;
+      message.type = 'text'; 
+      message.linkPreview = null;
+      await message.save();
+
+      io.in(chatId).emit('message-updated', {
+        messageId,
+        content: "This message was deleted",
+        isDeleted: true,
+        type: 'text',
+        linkPreview: null,
+        chatId
+      });
+      console.log(`🗑️ Message ${messageId} deleted for everyone`);
+    } catch (error) {
+      console.error('❌ Error deleting message:', error.message);
+    }
+  };
+
   // Register events
   socket.on('join-chat', joinChat);
   socket.on('new-message', newMessage);
@@ -272,4 +326,6 @@ module.exports = (io, socket) => {
   socket.on('message-seen', messageSeen);
   socket.on('typing', typing);
   socket.on('stop-typing', stopTyping);
+  socket.on('edit-message', editMessage);
+  socket.on('delete-message', deleteMessage);
 };
