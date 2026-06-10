@@ -11,8 +11,10 @@ import {
   Image,
   KeyboardAvoidingView,
   FlatList,
-  Linking
+  Linking,
+  Alert
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -274,6 +276,7 @@ const ChatScreen: React.FC = () => {
   
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showReactionFor, setShowReactionFor] = useState<string | null>(null);
   
@@ -360,6 +363,84 @@ const ChatScreen: React.FC = () => {
       setLoading(false);
     }
   }, [chat._id, user._id, userData?._id, socket, setMessages, chat.isGroupChat]);
+
+  const handleImagePick = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      handleImageUpload(result.assets[0].uri);
+    }
+  };
+
+  const handleImageUpload = async (uri: string) => {
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      
+      const filename = uri.split('/').pop() || 'image.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpg`;
+
+      formData.append('image', {
+        uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
+        name: filename,
+        type: type,
+      } as any);
+
+      const response = await apiClient.post('/messages/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.success) {
+        sendImageMessage(response.data.url);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const sendImageMessage = (imageUrl: string) => {
+    if (!userData || !socket) return;
+
+    const newMessage: any = {
+      id: Date.now().toString(),
+      content: imageUrl,
+      type: 'image',
+      senderId: userData._id,
+      receiverId: chat.isGroupChat ? null : user._id,
+      status: 'sent',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      replyTo: replyingTo ? {
+        _id: replyingTo.id,
+        content: replyingTo.content,
+        sender: { name: replyingTo.senderName || 'User' }
+      } : null
+    };
+
+    socket.emit('new-message', { 
+      ...newMessage, 
+      chatId: chat._id,
+      replyTo: replyingTo?.id 
+    });
+
+    addMessage(chat._id, newMessage);
+    setReplyingTo(null);
+  };
 
   useEffect(() => {
     fetchMessages();
@@ -628,7 +709,13 @@ const ChatScreen: React.FC = () => {
                 onChangeText={handleTextChange}
                 multiline
               />
-              <TouchableOpacity style={styles.btn}><Ionicons name="attach" size={24} color={Colors.textSecondary} style={{ transform: [{ rotate: '45deg' }] }} /></TouchableOpacity>
+              <TouchableOpacity style={styles.btn} onPress={handleImagePick} disabled={uploadingImage}>
+                {uploadingImage ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <Ionicons name="attach" size={24} color={Colors.textSecondary} style={{ transform: [{ rotate: '45deg' }] }} />
+                )}
+              </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.sendBtn} onPress={handleSendMessage}>
               <Ionicons name={message.trim() ? "send" : "mic"} size={22} color={Colors.white} />
