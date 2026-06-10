@@ -10,9 +10,17 @@ module.exports = (io, socket) => {
   
   // Helper to extract URL from text
   const extractUrl = (text) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    // Detects both full URLs (http/https) and naked domains (google.com)
+    const urlRegex = /(https?:\/\/[^\s]+)|(\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b(\/[^\s]*)?)/g;
     const matches = text.match(urlRegex);
-    return matches ? matches[0] : null;
+    if (!matches) return null;
+    
+    let url = matches[0];
+    // If it's a naked domain, prefix it with https:// for fetching
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'https://' + url;
+    }
+    return url;
   };
 
   // Helper to fetch link preview
