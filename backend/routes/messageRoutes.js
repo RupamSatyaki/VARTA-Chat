@@ -22,7 +22,18 @@ router.get('/:senderId/:receiverId', authMiddleware, messageController.getMessag
 // @route   POST /api/messages/upload
 // @desc    Upload an image
 // @access  Private
-router.post('/upload', authMiddleware, upload.single('image'), messageController.uploadImage);
+router.post('/upload', authMiddleware, (req, res, next) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      console.error('❌ Multer/Cloudinary Error:', err.message);
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Error during file upload'
+      });
+    }
+    next();
+  });
+}, messageController.uploadImage);
 
 // @route   POST /api/messages
 // @desc    Send a new message
