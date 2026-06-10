@@ -64,6 +64,14 @@ const messageSchema = new mongoose.Schema({
     url: { type: String },
     siteName: { type: String },
   },
+  isEdited: {
+    type: Boolean,
+    default: false,
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+  },
 }, {
   timestamps: true,
 });
