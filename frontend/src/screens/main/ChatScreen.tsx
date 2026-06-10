@@ -242,85 +242,92 @@ const MessageItem = React.memo(({
           ]}
         >
 
-          <View style={[
-            styles.messageBubble, 
-            isMe ? styles.myBubble : styles.otherBubble,
-            isSelected && styles.activeBubble,
-            item.isDeleted && styles.deletedBubble
-          ]}>
-            {!isMe && chat.isGroupChat && item.senderName && (
-              <Text style={styles.senderName}>{item.senderName}</Text>
-            )}
-            
-            {item.replyTo && !item.isDeleted && (
-              <View style={styles.replyContext}>
-                <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
-                <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
-              </View>
-            )}
+          <View style={{ position: 'relative' }}>
+            <View style={[
+              styles.messageBubble, 
+              isMe ? styles.myBubble : styles.otherBubble,
+              isSelected && styles.activeBubble,
+              item.isDeleted && styles.deletedBubble
+            ]}>
+              {!isMe && chat.isGroupChat && item.senderName && (
+                <Text style={styles.senderName}>{item.senderName}</Text>
+              )}
+              
+              {item.replyTo && !item.isDeleted && (
+                <View style={styles.replyContext}>
+                  <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
+                  <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
+                </View>
+              )}
 
-            {item.linkPreview && !item.isDeleted && (
-              <TouchableOpacity 
-                onPress={handleLinkPress}
-                style={styles.linkPreviewContainer}
-                disabled={selectedMessages.length > 0}
-              >
-                {item.linkPreview.image && (
+              {item.linkPreview && !item.isDeleted && (
+                <TouchableOpacity 
+                  onPress={handleLinkPress}
+                  style={styles.linkPreviewContainer}
+                  disabled={selectedMessages.length > 0}
+                >
+                  {item.linkPreview.image && (
+                    <Image 
+                      source={{ uri: item.linkPreview.image }} 
+                      style={styles.linkImage} 
+                      resizeMode="cover"
+                    />
+                  )}
+                  <View style={styles.linkTextContainer}>
+                    {item.linkPreview.siteName && (
+                      <Text style={styles.linkSiteName}>{item.linkPreview.siteName}</Text>
+                    )}
+                    {item.linkPreview.title && (
+                      <Text style={styles.linkTitle} numberOfLines={2}>{item.linkPreview.title}</Text>
+                    )}
+                    {item.linkPreview.description && (
+                      <Text style={styles.linkDescription} numberOfLines={2}>{item.linkPreview.description}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {item.type === 'image' && !item.isDeleted ? (
+                <View style={styles.messageImageContainer}>
                   <Image 
-                    source={{ uri: item.linkPreview.image }} 
-                    style={styles.linkImage} 
+                    source={{ uri: item.content }} 
+                    style={styles.messageImage} 
                     resizeMode="cover"
                   />
-                )}
-                <View style={styles.linkTextContainer}>
-                  {item.linkPreview.siteName && (
-                    <Text style={styles.linkSiteName}>{item.linkPreview.siteName}</Text>
-                  )}
-                  {item.linkPreview.title && (
-                    <Text style={styles.linkTitle} numberOfLines={2}>{item.linkPreview.title}</Text>
-                  )}
-                  {item.linkPreview.description && (
-                    <Text style={styles.linkDescription} numberOfLines={2}>{item.linkPreview.description}</Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <ClickableText 
+                    text={item.content} 
+                    style={[
+                      styles.messageText,
+                      item.isDeleted && styles.deletedText
+                    ]}
+                    disabled={selectedMessages.length > 0}
+                  />
+                  {item.isEdited && !item.isDeleted && (
+                    <Text style={styles.editedTag}> (edited)</Text>
                   )}
                 </View>
-              </TouchableOpacity>
-            )}
-
-            {item.type === 'image' && !item.isDeleted ? (
-              <View style={styles.messageImageContainer}>
-                <Image 
-                  source={{ uri: item.content }} 
-                  style={styles.messageImage} 
-                  resizeMode="cover"
-                />
+              )}
+              
+              <View style={styles.messageFooter}>
+                <Text style={styles.timestamp}>{item.timestamp}</Text>
+                {renderStatusIcon()}
               </View>
-            ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <ClickableText 
-                  text={item.content} 
-                  style={[
-                    styles.messageText,
-                    item.isDeleted && styles.deletedText
-                  ]}
-                  disabled={selectedMessages.length > 0}
-                />
-                {item.isEdited && !item.isDeleted && (
-                  <Text style={styles.editedTag}> (edited)</Text>
-                )}
-              </View>
-            )}
-            
-            <View style={styles.messageFooter}>
-              <Text style={styles.timestamp}>{item.timestamp}</Text>
-              {renderStatusIcon()}
             </View>
 
             {item.reactions && item.reactions.length > 0 && !item.isDeleted && (
-              <View style={styles.messageReactions}>
+              <View style={[
+                styles.messageReactions,
+                isMe ? { right: 6 } : { left: 6 }
+              ]}>
                 {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
                   <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
                 ))}
-                <Text style={styles.reactionCount}>{item.reactions.length}</Text>
+                {item.reactions.length > 1 && (
+                  <Text style={styles.reactionCount}>{item.reactions.length}</Text>
+                )}
               </View>
             )}
           </View>
@@ -1030,7 +1037,8 @@ const styles = StyleSheet.create({
   messageWrapper: {
     marginVertical: 4,
     maxWidth: '85%',
-    zIndex: 20, // Higher than the background overlay
+    zIndex: 20,
+    paddingBottom: 8,
   },
   myMessageWrapper: {
     alignSelf: 'flex-end',
@@ -1052,10 +1060,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 18,
     minWidth: 60,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 3,
+    elevation: 2,
   },
   myBubble: {
     backgroundColor: Colors.primary,
     borderBottomRightRadius: 4,
+    borderTopRightRadius: 18,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
   },
   activeBubble: {
     borderWidth: 1,
@@ -1064,6 +1080,9 @@ const styles = StyleSheet.create({
   otherBubble: {
     backgroundColor: Colors.surface,
     borderBottomLeftRadius: 4,
+    borderTopRightRadius: 18,
+    borderTopLeftRadius: 18,
+    borderBottomRightRadius: 18,
   },
   messageText: {
     color: Colors.white,
@@ -1155,18 +1174,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#2C2C2C',
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    bottom: -12,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 12,
-    marginTop: -8,
-    borderWidth: 1,
-    borderColor: '#1E1E1E',
-    elevation: 2,
+    borderWidth: 1.5,
+    borderColor: Colors.background,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
   },
   appliedReaction: {
     fontSize: 12,
