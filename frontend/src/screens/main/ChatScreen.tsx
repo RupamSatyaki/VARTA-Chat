@@ -1052,6 +1052,7 @@ const styles = StyleSheet.create({
     maxWidth: '85%',
     zIndex: 20,
     paddingBottom: 8,
+    flexShrink: 1,
   },
   myMessageWrapper: {
     alignSelf: 'flex-end',
@@ -1073,6 +1074,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 18,
     minWidth: 60,
+    flexShrink: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.18,
@@ -1102,6 +1104,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     flexShrink: 1,
     flexWrap: 'wrap',
+    ...Platform.select({
+      web: { wordBreak: 'break-all' },
+      default: {},
+    }),
   },
   senderName: {
     fontSize: 12,
