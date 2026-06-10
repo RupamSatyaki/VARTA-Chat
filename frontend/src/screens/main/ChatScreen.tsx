@@ -347,6 +347,7 @@ const ChatScreen: React.FC = () => {
         const formattedMessages = data.data.map((m: any) => ({
           id: m._id,
           content: m.content,
+          type: m.type || 'text',
           senderId: typeof m.sender === 'string' ? m.sender : m.sender._id,
           senderName: typeof m.sender === 'object' ? m.sender.name : null,
           receiverId: m.receiver,
@@ -375,6 +376,15 @@ const ChatScreen: React.FC = () => {
   }, [chat._id, user._id, userData?._id, socket, setMessages, chat.isGroupChat]);
 
   const handleImagePick = async () => {
+    // Safety check for native module availability
+    if (!ImagePicker.launchImageLibraryAsync) {
+      Alert.alert(
+        'Module Not Found',
+        'The Image Picker native module is missing. If you are using a development build, please run "npx expo run:android" or "npx expo run:ios" to rebuild the app.'
+      );
+      return;
+    }
+
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
@@ -463,6 +473,7 @@ const ChatScreen: React.FC = () => {
           const formattedMsg: Message = {
             id: newMessage._id || Date.now().toString(),
             content: newMessage.content,
+            type: newMessage.type || 'text',
             senderId: newMessage.senderId,
             senderName: newMessage.senderName,
             receiverId: newMessage.receiverId,
@@ -484,7 +495,8 @@ const ChatScreen: React.FC = () => {
 
       socket.on('message-sent', ({ tempId, message: savedMsg }: any) => {
         updateMessageId(chat._id, tempId, savedMsg._id, {
-          linkPreview: savedMsg.linkPreview
+          linkPreview: savedMsg.linkPreview,
+          type: savedMsg.type
         });
       });
 
