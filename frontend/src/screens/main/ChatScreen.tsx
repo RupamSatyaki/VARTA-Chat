@@ -907,9 +907,8 @@ const ChatScreen: React.FC = () => {
               setShowScrollDown(distanceFromBottom > 200);
             }}
             scrollEventThrottle={100}
-            onContentSizeChange={(w, h) => {
-              // Only scroll to end when messages change, not on every layout change
-              // Actually FlatList might need this for new messages
+            onContentSizeChange={() => {
+              flatListRef.current?.scrollToEnd({ animated: false });
             }}
             onLayout={() => {
               // Initial scroll
