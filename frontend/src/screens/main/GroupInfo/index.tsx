@@ -118,35 +118,19 @@ const GroupInfoScreen: React.FC = () => {
   // Header Animation Styles
   const headerStyle = useAnimatedStyle(() => {
     const headerHeight = interpolate(scrollY.value, [0, SCROLL_DISTANCE], [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT], Extrapolate.CLAMP);
-    const backgroundColor = interpolate(scrollY.value, [SCROLL_DISTANCE - 20, SCROLL_DISTANCE], [0, 1]);
-    const borderBottomWidth = interpolate(scrollY.value, [SCROLL_DISTANCE - 10, SCROLL_DISTANCE], [0, 0.5]);
-    
-    return {
-      height: headerHeight,
-      backgroundColor: `rgba(30, 30, 30, ${backgroundColor})`,
-      borderBottomWidth,
-      borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-    };
+    return { height: headerHeight };
   });
 
-  const profilePicStyle = useAnimatedStyle(() => {
-    const size = interpolate(scrollY.value, [0, SCROLL_DISTANCE], [width, 40], Extrapolate.CLAMP);
-    const left = interpolate(scrollY.value, [0, SCROLL_DISTANCE], [0, 56], Extrapolate.CLAMP);
-    const top = interpolate(scrollY.value, [0, SCROLL_DISTANCE], [0, Platform.OS === 'ios' ? 48 : 28], Extrapolate.CLAMP);
-    const borderRadius = interpolate(scrollY.value, [0, SCROLL_DISTANCE], [0, 20], Extrapolate.CLAMP);
-
-    return { width: size, height: size, left, top, position: 'absolute', borderRadius };
+  // Hero image fades out as we scroll
+  const heroStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(scrollY.value, [0, SCROLL_DISTANCE * 0.6], [1, 0], Extrapolate.CLAMP);
+    return { opacity };
   });
 
-  const nameTranslateX = useAnimatedStyle(() => {
-    const translateX = interpolate(scrollY.value, [0, SCROLL_DISTANCE], [0, 84], Extrapolate.CLAMP);
-    const translateY = interpolate(scrollY.value, [0, SCROLL_DISTANCE], [0, Platform.OS === 'ios' ? -8 : -12], Extrapolate.CLAMP);
-    const scale = interpolate(scrollY.value, [0, SCROLL_DISTANCE], [1, 0.9], Extrapolate.CLAMP);
-
-    return {
-      transform: [{ translateX }, { translateY }, { scale }],
-      maxWidth: width - 150,
-    };
+  // Compact bar fades in when nearly collapsed
+  const compactBarStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(scrollY.value, [SCROLL_DISTANCE * 0.7, SCROLL_DISTANCE], [0, 1], Extrapolate.CLAMP);
+    return { opacity };
   });
 
   const imageOverlayStyle = useAnimatedStyle(() => {
@@ -160,20 +144,37 @@ const GroupInfoScreen: React.FC = () => {
       
       {/* Animated Header */}
       <Animated.View style={[styles.header, headerStyle]}>
-        <Animated.Image 
-          source={{ uri: chat.groupProfilePic || 'https://cdn-icons-png.flaticon.com/512/615/615075.png' }} 
-          style={profilePicStyle}
-        />
-        <Animated.View style={[styles.imageOverlay, imageOverlayStyle]} />
+        
+        {/* Hero layer — full image with name at bottom (visible when expanded) */}
+        <Animated.View style={[StyleSheet.absoluteFillObject, heroStyle]}>
+          <Animated.Image 
+            source={{ uri: chat.groupProfilePic || 'https://cdn-icons-png.flaticon.com/512/615/615075.png' }} 
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+          />
+          <Animated.View style={[styles.imageOverlay, imageOverlayStyle]} />
+          <View style={styles.nameContainer}>
+            <Text style={styles.userName} numberOfLines={1}>{chat.chatName}</Text>
+            <Text style={styles.userStatus}>{chat.users?.length} members</Text>
+          </View>
+        </Animated.View>
+
+        {/* Compact bar layer — avatar + name row (visible when collapsed) */}
+        <Animated.View style={[styles.compactBar, compactBarStyle]} pointerEvents="none">
+          <Animated.Image
+            source={{ uri: chat.groupProfilePic || 'https://cdn-icons-png.flaticon.com/512/615/615075.png' }}
+            style={styles.compactAvatar}
+          />
+          <Text style={styles.compactName} numberOfLines={1}>{chat.chatName}</Text>
+        </Animated.View>
+
+        {/* Back button — always on top */}
         <SafeAreaView style={styles.headerTop} edges={['top']}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={Colors.white} />
           </TouchableOpacity>
         </SafeAreaView>
-        <Animated.View style={[styles.nameContainer, nameTranslateX]}>
-          <Text style={styles.userName} numberOfLines={1}>{chat.chatName}</Text>
-          <Text style={styles.userStatus}>{chat.users?.length} members</Text>
-        </Animated.View>
+
       </Animated.View>
 
       <Animated.ScrollView 
@@ -270,8 +271,14 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0,
     zIndex: 100,
     overflow: 'hidden',
+    backgroundColor: Colors.surface,
   },
-  headerTop: { paddingHorizontal: 16, zIndex: 110 },
+  headerTop: {
+    paddingHorizontal: 16,
+    zIndex: 110,
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+  },
   imageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'black' },
   backBtn: {
     width: 40, height: 40, borderRadius: 20,
@@ -293,6 +300,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
+  },
+  compactBar: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingBottom: 12,
+    paddingLeft: 60,
+    paddingRight: 16,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  compactAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  compactName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.white,
   },
   content: {
     backgroundColor: Colors.background,
