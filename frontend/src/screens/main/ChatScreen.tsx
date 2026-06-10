@@ -976,6 +976,7 @@ const styles = StyleSheet.create({
   messageWrapper: {
     marginVertical: 4,
     maxWidth: '85%',
+    zIndex: 20, // Higher than the background overlay
   },
   myMessageWrapper: {
     alignSelf: 'flex-end',
