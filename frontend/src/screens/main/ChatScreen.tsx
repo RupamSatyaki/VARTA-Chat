@@ -350,6 +350,7 @@ const ChatScreen: React.FC = () => {
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
@@ -462,7 +463,7 @@ const ChatScreen: React.FC = () => {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      handleImageUpload(result.assets[0].uri);
+      setPendingImage(result.assets[0].uri);
     }
   };
 
@@ -701,7 +702,16 @@ const ChatScreen: React.FC = () => {
   };
 
   const handleSendMessage = () => {
-    if (message.trim().length === 0 || !userData || !socket) return;
+    if (!userData || !socket) return;
+
+    // If there's a pending image, upload and send it
+    if (pendingImage) {
+      handleImageUpload(pendingImage);
+      setPendingImage(null);
+      return;
+    }
+
+    if (message.trim().length === 0) return;
     
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -966,24 +976,35 @@ const ChatScreen: React.FC = () => {
           <View style={styles.footer}>
             <View style={styles.inputBox}>
               <TouchableOpacity style={styles.btn}><Ionicons name="happy-outline" size={24} color={Colors.textSecondary} /></TouchableOpacity>
-              <TextInput
-                style={styles.input}
-                placeholder="Message"
-                placeholderTextColor={Colors.textSecondary}
-                value={message}
-                onChangeText={handleTextChange}
-                multiline
-              />
+              
+              {pendingImage ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image source={{ uri: pendingImage }} style={styles.imagePreview} resizeMode="cover" />
+                  <TouchableOpacity style={styles.removeImageBtn} onPress={() => setPendingImage(null)}>
+                    <Ionicons name="close-circle" size={18} color={Colors.white} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  placeholder="Message"
+                  placeholderTextColor={Colors.textSecondary}
+                  value={message}
+                  onChangeText={handleTextChange}
+                  multiline
+                />
+              )}
+
               <TouchableOpacity style={styles.btn} onPress={handleImagePick} disabled={uploadingImage}>
                 {uploadingImage ? (
                   <ActivityIndicator size="small" color={Colors.primary} />
                 ) : (
-                  <Ionicons name="attach" size={24} color={Colors.textSecondary} style={{ transform: [{ rotate: '45deg' }] }} />
+                  <Ionicons name="attach" size={24} color={pendingImage ? Colors.primary : Colors.textSecondary} style={{ transform: [{ rotate: '45deg' }] }} />
                 )}
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.sendBtn} onPress={handleSendMessage}>
-              <Ionicons name={message.trim() ? "send" : "mic"} size={22} color={Colors.white} />
+              <Ionicons name={message.trim() || pendingImage ? "send" : "mic"} size={22} color={Colors.white} />
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -1345,6 +1366,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 10,
     maxHeight: 120,
+  },
+  imagePreviewContainer: {
+    flex: 1,
+    height: 44,
+    marginVertical: 4,
+    marginHorizontal: 4,
+    position: 'relative',
+  },
+  imagePreview: {
+    width: 60,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: Colors.surface,
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: -6,
+    left: 50,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 10,
   },
   btn: {
     padding: 8,
