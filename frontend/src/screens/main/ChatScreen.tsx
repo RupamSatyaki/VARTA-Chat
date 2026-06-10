@@ -201,6 +201,26 @@ const MessageItem = React.memo(({
       isSelected && styles.selectedMessageContainer,
       isSelected && { zIndex: 9999, elevation: 11 }
     ]}>
+      {isSelected && selectedMessages.length === 1 && (
+        <Animated.View 
+          entering={FadeInDown.duration(200)} 
+          exiting={FadeOut.duration(150)}
+          style={[
+            styles.reactionContainer, 
+            isMe ? { right: 15 } : { left: 15 }
+          ]}
+        >
+          {REACTIONS.map((emoji) => (
+            <TouchableOpacity 
+              key={emoji} 
+              onPress={() => handleReaction(item.id, emoji)}
+              style={styles.reactionTouch}
+            >
+              <Text style={styles.reactionEmoji}>{emoji}</Text>
+            </TouchableOpacity>
+          ))}
+        </Animated.View>
+      )}
       <Swipeable
         ref={swipeableRef}
         renderLeftActions={item.isDeleted ? undefined : renderActions}
@@ -221,26 +241,6 @@ const MessageItem = React.memo(({
             isSelected && { zIndex: 1000, elevation: 10 }
           ]}
         >
-          {isSelected && selectedMessages.length === 1 && (
-            <Animated.View 
-              entering={FadeInDown.duration(200)} 
-              exiting={FadeOut.duration(150)}
-              style={[
-                styles.reactionContainer, 
-                isMe ? { right: 10 } : { left: 10 }
-              ]}
-            >
-              {REACTIONS.map((emoji) => (
-                <TouchableOpacity 
-                  key={emoji} 
-                  onPress={() => handleReaction(item.id, emoji)}
-                  style={styles.reactionTouch}
-                >
-                  <Text style={styles.reactionEmoji}>{emoji}</Text>
-                </TouchableOpacity>
-              ))}
-            </Animated.View>
-          )}
 
           <View style={[
             styles.messageBubble, 
@@ -1042,6 +1042,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     paddingHorizontal: 15,
     width: '100%',
+    overflow: 'visible',
   },
   selectedMessageContainer: {
     backgroundColor: 'rgba(52, 183, 241, 0.15)',
@@ -1182,10 +1183,9 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 30,
     position: 'absolute',
-    bottom: '100%', // Position it above the top of the messageWrapper
-    marginBottom: 5, // Gap between reaction bar and bubble
+    top: -52,
     zIndex: 10000,
-    elevation: 25, // Increased elevation
+    elevation: 25,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
