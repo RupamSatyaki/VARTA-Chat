@@ -147,9 +147,38 @@ const getChatMedia = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Upload an image to Cloudinary
+ * @route   POST /api/messages/upload
+ * @access  Private
+ */
+const uploadImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      url: req.file.path, // Cloudinary URL
+      public_id: req.file.filename
+    });
+  } catch (error) {
+    console.error(`❌ Error in uploadImage: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error'
+    });
+  }
+};
+
 module.exports = {
   sendMessage,
   getMessages,
   getChatMessages,
-  getChatMedia
+  getChatMedia,
+  uploadImage
 };
