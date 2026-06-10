@@ -52,6 +52,63 @@ interface Message {
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
+const ClickableText = ({ text, style }: { text: string; style: any }) => {
+  const urlRegex = /(https?:\/\/[^\s]+)|(\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b(\/[^\s]*)?)/g;
+  const parts = text.split(urlRegex);
+
+  // Filter out undefined from regex groups
+  const filteredParts = text.match(urlRegex) || [];
+  
+  // We need a more reliable way to split and keep matches
+  const renderContent = () => {
+    const elements = [];
+    let lastIndex = 0;
+    let match;
+    
+    // Reset regex index
+    urlRegex.lastIndex = 0;
+    
+    while ((match = urlRegex.exec(text)) !== null) {
+      // Add text before match
+      if (match.index > lastIndex) {
+        elements.push(
+          <Text key={`text-${lastIndex}`} style={style}>
+            {text.substring(lastIndex, match.index)}
+          </Text>
+        );
+      }
+      
+      const url = match[0];
+      const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+      
+      elements.push(
+        <Text
+          key={`link-${match.index}`}
+          style={[style, { color: '#34B7F1', textDecorationLine: 'underline' }]}
+          onPress={() => Linking.openURL(fullUrl).catch(err => console.error("Couldn't load page", err))}
+        >
+          {url}
+        </Text>
+      );
+      
+      lastIndex = urlRegex.lastIndex;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      elements.push(
+        <Text key={`text-${lastIndex}`} style={style}>
+          {text.substring(lastIndex)}
+        </Text>
+      );
+    }
+    
+    return elements;
+  };
+
+  return <Text style={style}>{renderContent()}</Text>;
+};
+
 const MessageItem = React.memo(({ 
   item, 
   isMe, 
@@ -189,7 +246,7 @@ const MessageItem = React.memo(({
             </TouchableOpacity>
           )}
 
-          <Text style={styles.messageText}>{item.content}</Text>
+          <ClickableText text={item.content} style={styles.messageText} />
           
           <View style={styles.messageFooter}>
             <Text style={styles.timestamp}>{item.timestamp}</Text>
