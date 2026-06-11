@@ -466,6 +466,7 @@ const ChatScreen: React.FC = () => {
   const { 
     messages, 
     setMessages, 
+    appendMessages,
     addMessage, 
     updateMessageStatus, 
     updateMessageReactions,
@@ -543,11 +544,12 @@ const ChatScreen: React.FC = () => {
         
         if (formattedMessages.length < 20) {
           setHasMore(false);
+        } else {
+          setHasMore(true);
         }
 
         if (before) {
-          // Pagination: append to the end of our newest-to-oldest array
-          setMessages(chat._id, [...chatMessages, ...formattedMessages]);
+          appendMessages(chat._id, formattedMessages);
         } else {
           // Initial load: Find first unread message
           const firstUnread = [...formattedMessages].reverse().find((m: Message) => 
@@ -574,13 +576,18 @@ const ChatScreen: React.FC = () => {
       setLoading(false);
       setIsLoadingMore(false);
     }
-  }, [chat._id, user._id, userData?._id, socket, setMessages, chat.isGroupChat, chatMessages]);
+  }, [chat._id, user._id, userData?._id, socket, setMessages, appendMessages, chat.isGroupChat]);
 
   const loadMoreMessages = () => {
     if (!hasMore || isLoadingMore || chatMessages.length === 0) return;
     const oldestMessage = chatMessages[chatMessages.length - 1];
+    console.log('🔄 Loading more messages before:', oldestMessage.fullDate);
     fetchMessages(oldestMessage.fullDate);
   };
+
+  useEffect(() => {
+    fetchMessages();
+  }, [chat._id]);
 
   const handleImagePick = async () => {
     // Safety check for native module availability
@@ -708,8 +715,6 @@ const ChatScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchMessages();
-
     if (socket) {
       socket.emit('join-chat', chat._id);
 
@@ -800,7 +805,7 @@ const ChatScreen: React.FC = () => {
         socket.off('stop-typing');
       }
     };
-  }, [chat._id, socket, userData?._id, fetchMessages, addMessage, updateMessageStatus, updateMessageReactions, markMessagesAsSeen, updateMessageId, setTyping, chat.isGroupChat, updateMessage]);
+  }, [chat._id, socket, userData?._id, addMessage, updateMessageStatus, updateMessageReactions, markMessagesAsSeen, updateMessageId, setTyping, chat.isGroupChat, updateMessage]);
 
   const handleReaction = (messageId: string, emoji: string) => {
     if (!socket || !userData) return;
@@ -952,10 +957,6 @@ const ChatScreen: React.FC = () => {
     // In inverted FlatList:
     // index 0 is newest
     // index length-1 is oldest
-    // We want divider BEFORE the first message of a day (visually above it)
-    // So if CURRENT message is OLDER than the one at index-1, show divider? 
-    // No, index-1 is NEWER than CURRENT.
-    // We want divider between CURRENT and index+1 (where index+1 is older).
     
     if (index === chatMessages.length - 1) return true; // Oldest item always has divider
     const olderItem = chatMessages[index + 1];
@@ -1149,8 +1150,6 @@ const ChatScreen: React.FC = () => {
             }
             onScroll={(e) => {
               const { contentOffset } = e.nativeEvent;
-              // In inverted FlatList, offset 0 is the bottom (latest messages)
-              // As you scroll up, offset increases.
               setShowScrollDown(contentOffset.y > 300);
             }}
             scrollEventThrottle={100}

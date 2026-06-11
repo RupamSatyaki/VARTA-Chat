@@ -44,6 +44,7 @@ interface ChatState {
   userStatuses: Record<string, { status: 'online' | 'offline', lastSeen?: string }>; // userId -> status data
   setChats: (chats: Chat[]) => void;
   setMessages: (chatId: string, messages: Message[]) => void;
+  appendMessages: (chatId: string, messages: Message[]) => void;
   addMessage: (chatId: string, message: Message) => void;
   updateMessage: (chatId: string, messageId: string, updates: Partial<Message>) => void;
   updateMessageId: (chatId: string, tempId: string, realId: string, newData?: Partial<Message>) => void;
@@ -107,6 +108,21 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({
       messages: { ...state.messages, [chatId]: messages }
     })),
+
+  appendMessages: (chatId, newMessages) =>
+    set((state) => {
+      const existingMessages = state.messages[chatId] || [];
+      // Filter out duplicates just in case
+      const filteredNew = newMessages.filter(
+        (nm) => !existingMessages.find((em) => em.id === nm.id)
+      );
+      return {
+        messages: {
+          ...state.messages,
+          [chatId]: [...existingMessages, ...filteredNew]
+        }
+      };
+    }),
 
   addMessage: (chatId, message) =>
     set((state) => {
