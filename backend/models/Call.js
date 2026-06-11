@@ -6,10 +6,28 @@ const callSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  // Keep receiver for backward compatibility with 1-on-1 calls
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+  },
+  participants: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    status: { 
+      type: String, 
+      enum: ['ringing', 'joined', 'declined', 'missed', 'left'],
+      default: 'ringing'
+    },
+    joinedAt: Date,
+    leftAt: Date
+  }],
+  chat: { // Reference to group chat if it's a group call
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Chat',
+  },
+  isGroupCall: {
+    type: Boolean,
+    default: false,
   },
   type: {
     type: String,

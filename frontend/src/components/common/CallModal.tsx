@@ -8,7 +8,7 @@ import {
   Image, 
   Dimensions 
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { RTCView } from '../../api/WebRTCAdapter';
 import { useCall } from '../../context/CallContext';
 import { Colors } from '../../theme/colors';
@@ -24,6 +24,7 @@ const CallModal: React.FC = () => {
     callAccepted, 
     callerInfo, 
     callType,
+    participants,
     answerCall, 
     rejectCall, 
     endCall,
@@ -39,13 +40,45 @@ const CallModal: React.FC = () => {
 
   const showRemoteVideo = callAccepted && remoteStream && callType === 'video' && !isRemoteCameraOff;
 
+  const renderParticipants = () => {
+    if (!participants || participants.length === 0) return null;
+
+    return (
+      <View style={styles.participantsContainer}>
+        {participants.map((p, index) => {
+          const statusColor = p.status === 'joined' ? '#4CAF50' : p.status === 'declined' ? '#F44336' : '#FFC107';
+          return (
+            <View key={p.user?._id || index} style={styles.participantItem}>
+              <View style={styles.participantAvatarWrapper}>
+                <Image 
+                  source={{ uri: p.user?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+                  style={[styles.participantAvatar, { borderColor: statusColor }]} 
+                />
+                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              </View>
+              <Text style={styles.participantName} numberOfLines={1}>{p.user?.name || 'User'}</Text>
+              <Text style={[styles.participantStatus, { color: statusColor }]}>
+                {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  const getStreamURL = (stream: any) => {
+    if (!stream) return null;
+    return typeof stream.toURL === 'function' ? stream.toURL() : stream._url;
+  };
+
   return (
     <Modal visible={true} animationType="slide">
       <View style={styles.container}>
         {/* Remote Stream (Full Screen) */}
         {showRemoteVideo ? (
           <RTCView
-            streamURL={remoteStream!.toURL()}
+            streamURL={getStreamURL(remoteStream)}
             style={styles.remoteVideo}
             objectFit="cover"
           />
@@ -59,6 +92,9 @@ const CallModal: React.FC = () => {
             <Text style={styles.status}>
               {isCalling ? 'Calling...' : isReceivingCall ? 'Incoming Call...' : isRemoteCameraOff ? 'Camera is off' : 'Connected'}
             </Text>
+
+            {/* Live Participants List for Group Calls */}
+            {renderParticipants()}
           </View>
         )}
 
@@ -67,7 +103,7 @@ const CallModal: React.FC = () => {
           <View style={styles.localVideoContainer}>
             {!isCameraOff ? (
               <RTCView
-                streamURL={localStream.toURL()}
+                streamURL={getStreamURL(localStream)}
                 style={styles.localVideo}
                 objectFit="cover"
               />
@@ -84,7 +120,7 @@ const CallModal: React.FC = () => {
 
         {/* Call Controls */}
         <View style={styles.controlsContainer}>
-          {isReceivingCall ? (
+          {isReceivingCall && !callAccepted ? (
             <View style={styles.incomingControls}>
               <TouchableOpacity 
                 style={[styles.controlBtn, styles.declineBtn]} 
@@ -96,7 +132,7 @@ const CallModal: React.FC = () => {
                 style={[styles.controlBtn, styles.acceptBtn]} 
                 onPress={answerCall}
               >
-                <Ionicons name="call" size={32} color={Colors.white} />
+                <Ionicons name={callType === 'video' ? 'videocam' : 'call'} size={32} color={Colors.white} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -166,6 +202,47 @@ const styles = StyleSheet.create({
   status: {
     fontSize: 16,
     color: Colors.textSecondary,
+  },
+  participantsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 40,
+    paddingHorizontal: 20,
+    gap: 15,
+  },
+  participantItem: {
+    alignItems: 'center',
+    width: 80,
+  },
+  participantAvatarWrapper: {
+    position: 'relative',
+    marginBottom: 5,
+  },
+  participantAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+  },
+  statusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#1A1A1A',
+  },
+  participantName: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  participantStatus: {
+    fontSize: 9,
+    fontWeight: 'bold',
   },
   localVideoContainer: {
     position: 'absolute',
