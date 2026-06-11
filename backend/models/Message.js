@@ -76,6 +76,13 @@ const messageSchema = new mongoose.Schema({
     callType: { type: String, enum: ['audio', 'video'] },
     status:   { type: String, enum: ['completed', 'missed', 'rejected'] },
     duration: { type: Number, default: 0 },
+    callId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Call' },
+    participants: [{
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      name: String,
+      status: String,
+      joinedAt: Date
+    }]
   },
 }, {
   timestamps: true,

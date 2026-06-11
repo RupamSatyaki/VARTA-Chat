@@ -358,6 +358,8 @@ const MessageItem = React.memo(({
                   ? completed ? 'Outgoing' : 'Cancelled'
                   : completed ? 'Incoming' : missed ? 'Missed' : 'Declined';
 
+                const joinedParticipants = item.callMeta.participants?.filter(p => p.status === 'joined') || [];
+
                 return (
                   <TouchableOpacity activeOpacity={0.85} onPress={() => onCallBubblePress(item)} style={styles.callCard}>
                     {/* Icon circle + call info */}
@@ -374,16 +376,27 @@ const MessageItem = React.memo(({
                       <View style={styles.callCardInfo}>
                         <Text style={styles.callCardLabel}>{callLabel}</Text>
                         <Text style={styles.callCardDirection}>{directionLabel}</Text>
-                        <View style={styles.callCardStatusRow}>
-                          <Ionicons
-                            name={completed ? 'time-outline' : 'close-outline'}
-                            size={11}
-                            color={statusColor}
-                          />
-                          <Text style={[styles.callCardStatus, { color: statusColor }]}>
-                            {statusLabel}
-                          </Text>
-                        </View>
+                        
+                        {/* Show joined participants for group calls */}
+                        {chat.isGroupChat && joinedParticipants.length > 0 ? (
+                          <View style={styles.joinedParticipantsContainer}>
+                            <Text style={styles.joinedLabel}>Joined:</Text>
+                            <Text style={styles.joinedNames} numberOfLines={1}>
+                              {joinedParticipants.map(p => p.name).join(', ')}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.callCardStatusRow}>
+                            <Ionicons
+                              name={completed ? 'time-outline' : 'close-outline'}
+                              size={11}
+                              color={statusColor}
+                            />
+                            <Text style={[styles.callCardStatus, { color: statusColor }]}>
+                              {statusLabel}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
 
@@ -1508,6 +1521,23 @@ const styles = StyleSheet.create({
   callCardStatus: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  joinedParticipantsContainer: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  joinedLabel: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  joinedNames: {
+    color: '#4ade80',
+    fontSize: 11,
+    fontWeight: '500',
+    flex: 1,
   },
   callCardDivider: {
     height: 0.5,

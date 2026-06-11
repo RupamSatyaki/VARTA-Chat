@@ -5,43 +5,69 @@ const Call = require('../models/Call');
 const Message = require('../models/Message');
 const Chat = require('../models/Chat');
 
-// Helper: save a call event as a message in the 1-on-1 chat
-const saveCallMessage = async (callerId, receiverId, callType, status, duration = 0) => {
+// Helper: save a call event as a message
+const saveCallMessage = async (callId) => {
   try {
-    const chat = await Chat.findOne({
-      isGroupChat: false,
-      users: { $all: [callerId, receiverId] }
-    });
-    if (!chat) return;
+    const call = await Call.findById(callId).populate('participants.user', 'name');
+    if (!call) return;
 
-    const durationText = duration > 0
-      ? ` (${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')})`
+    // Find the correct chat to post this message in
+    let chatId = call.chat;
+    
+    // If no explicit chat (1-on-1 direct call), find the 1-on-1 chat record
+    if (!chatId) {
+      const privateChat = await Chat.findOne({
+        isGroupChat: false,
+        users: { $all: [call.caller, call.participants[0].user] }
+      });
+      if (privateChat) chatId = privateChat._id;
+    }
+
+    if (!chatId) return;
+
+    const durationText = call.duration > 0
+      ? ` (${Math.floor(call.duration / 60)}:${String(call.duration % 60).padStart(2, '0')})`
       : '';
-    const label = `${callType === 'video' ? 'Video' : 'Audio'} call${durationText}`;
+    
+    const callLabel = call.isGroupCall ? 'Group' : '';
+    const label = `${callLabel} ${call.type === 'video' ? 'Video' : 'Audio'} call${durationText}`;
+
+    // Prepare participants summary for the message
+    const participantsMeta = call.participants.map(p => ({
+      user: p.user._id,
+      name: p.user.name,
+      status: p.status,
+      joinedAt: p.joinedAt
+    }));
 
     const msg = await Message.create({
-      sender: callerId,
-      receiver: receiverId,
-      chat: chat._id,
+      sender: call.caller,
+      chat: chatId,
       content: label,
       type: 'call',
       status: 'sent',
-      readBy: [callerId],
-      callMeta: { callType, status, duration },
+      readBy: [call.caller],
+      callMeta: { 
+        callType: call.type, 
+        status: call.status, 
+        duration: call.duration,
+        callId: call._id,
+        participants: participantsMeta
+      },
     });
 
-    await Chat.findByIdAndUpdate(chat._id, { latestMessage: msg._id });
+    await Chat.findByIdAndUpdate(chatId, { latestMessage: msg._id });
 
-    // Emit to both users so ChatScreen updates live
-    io.to(callerId.toString()).to(receiverId.toString()).emit('message-received', {
+    // Emit to the chat room
+    io.to(chatId.toString()).emit('message-received', {
       _id: msg._id,
-      chatId: chat._id,
+      chatId: chatId,
       content: label,
       type: 'call',
-      senderId: callerId,
+      senderId: call.caller,
       status: 'sent',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      callMeta: { callType, status, duration },
+      callMeta: msg.callMeta,
     });
   } catch (err) {
     console.error('Error saving call message:', err.message);
@@ -164,25 +190,31 @@ module.exports = (ioInstance, socket) => {
     
     if (callId && userId) {
       try {
-        await Call.updateOne(
+        const updatedCall = await Call.findOneAndUpdate(
           { _id: callId, 'participants.user': userId },
           { 
             $set: { 
               'participants.$.status': 'declined',
               'participants.$.leftAt': new Date() 
             }
-          }
+          },
+          { new: true }
         );
 
-        // Fetch fresh list and broadcast
-        const updatedCall = await Call.findById(callId).populate('participants.user', 'name profilePic');
-        const callerId = updatedCall.caller.toString();
-        
-        const allNotifyIds = [callerId, ...updatedCall.participants.map(p => p.user._id.toString())];
-        allNotifyIds.forEach(id => {
-          io.to(id).emit('call-participants-update', updatedCall.participants);
-        });
+        if (updatedCall) {
+          // Broadcast participant list update
+          const populatedCall = await Call.findById(callId).populate('participants.user', 'name profilePic');
+          const callerId = populatedCall.caller.toString();
+          const allNotifyIds = [callerId, ...populatedCall.participants.map(p => p.user._id.toString())];
+          allNotifyIds.forEach(id => {
+            io.to(id).emit('call-participants-update', populatedCall.participants);
+          });
 
+          // Only save message on rejection for 1-on-1 calls
+          if (!populatedCall.isGroupCall) {
+            await saveCallMessage(callId);
+          }
+        }
       } catch (error) {
         console.error('Error updating call rejection:', error);
       }
@@ -220,7 +252,8 @@ module.exports = (ioInstance, socket) => {
           }
 
           // If everyone left or caller ended it, mark call as completed
-          const activeParticipants = (await Call.findById(id)).participants.filter(p => p.status === 'joined');
+          const currentCallState = await Call.findById(id);
+          const activeParticipants = currentCallState.participants.filter(p => p.status === 'joined');
           
           if (activeParticipants.length === 0 || userId?.toString() === call.caller.toString()) {
             const endedAt = new Date();
@@ -234,6 +267,8 @@ module.exports = (ioInstance, socket) => {
             }, { new: true });
 
             if (updatedCall) {
+              await saveCallMessage(id);
+              
               io.to(updatedCall.caller.toString()).emit('call-log-updated');
               // Notify everyone in the group/call
               updatedCall.participants.forEach(p => {
