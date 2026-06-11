@@ -457,6 +457,8 @@ const ChatScreen: React.FC = () => {
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [callbackTarget, setCallbackTarget] = useState<Message | null>(null);
   const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
@@ -505,11 +507,19 @@ const ChatScreen: React.FC = () => {
     return isConnected ? 'Offline' : 'Connecting...';
   };
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (before?: string) => {
     if (!chat?._id) return;
     try {
-      setLoading(true);
-      const response = await apiClient.get(`/messages/${chat._id}`);
+      if (!before) setLoading(true);
+      else setIsLoadingMore(true);
+
+      const response = await apiClient.get(`/messages/${chat._id}`, {
+        params: {
+          limit: 20,
+          before: before
+        }
+      });
+      
       const data = response.data;
 
       if (data.success) {
@@ -531,18 +541,26 @@ const ChatScreen: React.FC = () => {
           callMeta: m.callMeta,
         }));
         
-        // Find first unread message before updating store
-        const firstUnread = formattedMessages.find((m: Message) => 
-          m.senderId !== userData?._id && m.status !== 'seen'
-        );
-        if (firstUnread) {
-          setFirstUnreadId(firstUnread.id);
+        if (formattedMessages.length < 20) {
+          setHasMore(false);
         }
 
-        setMessages(chat._id, formattedMessages);
+        if (before) {
+          // Pagination: append to the end of our newest-to-oldest array
+          setMessages(chat._id, [...chatMessages, ...formattedMessages]);
+        } else {
+          // Initial load: Find first unread message
+          const firstUnread = [...formattedMessages].reverse().find((m: Message) => 
+            m.senderId !== userData?._id && m.status !== 'seen'
+          );
+          if (firstUnread) {
+            setFirstUnreadId(firstUnread.id);
+          }
+          setMessages(chat._id, formattedMessages);
+        }
         
-        // Mark these messages as seen in the backend
-        if (socket && userData) {
+        // Mark as seen only on initial load or if we fetched unread ones
+        if (!before && socket && userData) {
           socket.emit('message-seen', {
             chatId: chat._id,
             senderId: chat.isGroupChat ? null : user._id, 
@@ -554,8 +572,15 @@ const ChatScreen: React.FC = () => {
       console.error('Fetch messages error:', error);
     } finally {
       setLoading(false);
+      setIsLoadingMore(false);
     }
-  }, [chat._id, user._id, userData?._id, socket, setMessages, chat.isGroupChat]);
+  }, [chat._id, user._id, userData?._id, socket, setMessages, chat.isGroupChat, chatMessages]);
+
+  const loadMoreMessages = () => {
+    if (!hasMore || isLoadingMore || chatMessages.length === 0) return;
+    const oldestMessage = chatMessages[chatMessages.length - 1];
+    fetchMessages(oldestMessage.fullDate);
+  };
 
   const handleImagePick = async () => {
     // Safety check for native module availability
@@ -924,11 +949,19 @@ const ChatScreen: React.FC = () => {
   };
 
   const shouldShowDateDivider = (item: Message, index: number) => {
-    if (index === 0) return true;
-    const prevItem = chatMessages[index - 1];
-    const prevDate = new Date(prevItem.fullDate).toDateString();
+    // In inverted FlatList:
+    // index 0 is newest
+    // index length-1 is oldest
+    // We want divider BEFORE the first message of a day (visually above it)
+    // So if CURRENT message is OLDER than the one at index-1, show divider? 
+    // No, index-1 is NEWER than CURRENT.
+    // We want divider between CURRENT and index+1 (where index+1 is older).
+    
+    if (index === chatMessages.length - 1) return true; // Oldest item always has divider
+    const olderItem = chatMessages[index + 1];
+    const olderDate = new Date(olderItem.fullDate).toDateString();
     const currentDate = new Date(item.fullDate).toDateString();
-    return prevDate !== currentDate;
+    return currentDate !== olderDate;
   };
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
@@ -938,13 +971,6 @@ const ChatScreen: React.FC = () => {
     
     return (
       <>
-        {showDateDivider && (
-          <View style={styles.dateDivider}>
-            <View style={styles.dateDividerContent}>
-              <Text style={styles.dateDividerText}>{formatDateDivider(item.fullDate)}</Text>
-            </View>
-          </View>
-        )}
         {isFirstUnread && (
           <View style={styles.unreadDivider}>
             <View style={styles.unreadDividerLine} />
@@ -966,6 +992,13 @@ const ChatScreen: React.FC = () => {
           REACTIONS={REACTIONS}
           onCallBubblePress={setCallbackTarget}
         />
+        {showDateDivider && (
+          <View style={styles.dateDivider}>
+            <View style={styles.dateDividerContent}>
+              <Text style={styles.dateDividerText}>{formatDateDivider(item.fullDate)}</Text>
+            </View>
+          </View>
+        )}
       </>
     );
   };
@@ -1103,24 +1136,24 @@ const ChatScreen: React.FC = () => {
           <FlatList
             ref={flatListRef}
             data={chatMessages}
+            inverted={true}
             keyExtractor={(item) => item.id}
             renderItem={renderMessage}
             contentContainerStyle={styles.listContent}
+            onEndReached={loadMoreMessages}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isLoadingMore ? (
+                <ActivityIndicator style={{ marginVertical: 10 }} color={Colors.primary} />
+              ) : null
+            }
             onScroll={(e) => {
-              const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-              const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
-              setShowScrollDown(distanceFromBottom > 200);
+              const { contentOffset } = e.nativeEvent;
+              // In inverted FlatList, offset 0 is the bottom (latest messages)
+              // As you scroll up, offset increases.
+              setShowScrollDown(contentOffset.y > 300);
             }}
             scrollEventThrottle={100}
-            onContentSizeChange={() => {
-              flatListRef.current?.scrollToEnd({ animated: false });
-            }}
-            onLayout={() => {
-              // Initial scroll
-              if (chatMessages.length > 0) {
-                flatListRef.current?.scrollToEnd({ animated: false });
-              }
-            }}
             showsVerticalScrollIndicator={true}
             style={{ flex: 1, height: '100%' }}
             removeClippedSubviews={Platform.OS === 'android'}
@@ -1128,7 +1161,7 @@ const ChatScreen: React.FC = () => {
           />
           {showScrollDown && (
             <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.scrollDownBtn}>
-              <TouchableOpacity onPress={() => flatListRef.current?.scrollToEnd({ animated: true })}>
+              <TouchableOpacity onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}>
                 <Ionicons name="chevron-down" size={22} color={Colors.white} />
               </TouchableOpacity>
             </Animated.View>

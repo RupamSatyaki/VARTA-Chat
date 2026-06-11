@@ -116,7 +116,7 @@ export const useChatStore = create<ChatState>((set) => ({
       return {
         messages: {
           ...state.messages,
-          [chatId]: [...chatMessages, message]
+          [chatId]: [message, ...chatMessages] // Prepend for latest-first order
         }
       };
     }),

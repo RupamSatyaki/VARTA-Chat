@@ -76,22 +76,29 @@ const getMessages = async (req, res) => {
 };
 
 /**
- * @desc    Get messages for a specific chat
+ * @desc    Get messages for a specific chat with pagination
  * @route   GET /api/messages/:chatId
  * @access  Private
  */
 const getChatMessages = async (req, res) => {
   try {
     const { chatId } = req.params;
+    const { limit = 20, before } = req.query;
 
-    const messages = await Message.find({ chat: chatId })
+    const query = { chat: chatId };
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    }
+
+    const messages = await Message.find(query)
       .populate("sender", "name profilePic number")
       .populate({
         path: "replyTo",
         select: "content sender",
         populate: { path: "sender", select: "name" }
       })
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: -1 }) // Get latest messages first for pagination
+      .limit(parseInt(limit));
 
     res.status(200).json({
       success: true,
