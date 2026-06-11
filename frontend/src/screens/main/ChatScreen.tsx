@@ -12,7 +12,9 @@ import {
   KeyboardAvoidingView,
   FlatList,
   Linking,
-  Alert
+  Alert,
+  Modal,
+  Pressable
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -128,7 +130,8 @@ const MessageItem = React.memo(({
   selectedMessages,
   setSelectedMessages,
   handleReaction,
-  REACTIONS 
+  REACTIONS,
+  onCallBubblePress,
 }: { 
   item: Message; 
   isMe: boolean; 
@@ -139,6 +142,7 @@ const MessageItem = React.memo(({
   setSelectedMessages: React.Dispatch<React.SetStateAction<string[]>>;
   handleReaction: (msgId: string, emoji: string) => void;
   REACTIONS: string[];
+  onCallBubblePress: (msg: Message) => void;
 }) => {
   const swipeableRef = useRef<Swipeable>(null);
   const isSelected = selectedMessages.includes(item.id);
@@ -316,7 +320,7 @@ const MessageItem = React.memo(({
                   : item.callMeta.status === 'rejected' ? 'Declined' : 'Missed';
 
                 return (
-                  <View style={styles.callCard}>
+                  <TouchableOpacity activeOpacity={0.85} onPress={() => onCallBubblePress(item)} style={styles.callCard}>
                     {/* Icon circle + call info */}
                     <View style={styles.callCardTop}>
                       <View style={[styles.callIconCircle, { backgroundColor: missed ? 'rgba(255,107,107,0.15)' : 'rgba(74,222,128,0.15)' }]}>
@@ -347,7 +351,7 @@ const MessageItem = React.memo(({
                         {item.callMeta.callType === 'video' ? 'Video call back' : 'Call back'}
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })() : (
                 <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -405,6 +409,7 @@ const ChatScreen: React.FC = () => {
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [callbackTarget, setCallbackTarget] = useState<Message | null>(null);
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
@@ -854,6 +859,7 @@ const ChatScreen: React.FC = () => {
         setSelectedMessages={setSelectedMessages}
         handleReaction={handleReaction}
         REACTIONS={REACTIONS}
+        onCallBubblePress={setCallbackTarget}
       />
     );
   };
@@ -1085,6 +1091,59 @@ const ChatScreen: React.FC = () => {
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
+
+      {/* Call back bottom sheet */}
+      <Modal
+        visible={!!callbackTarget}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCallbackTarget(null)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setCallbackTarget(null)}>
+          <Animated.View entering={FadeInDown.duration(250)} style={styles.sheetContainer}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Call back</Text>
+
+            <TouchableOpacity
+              style={styles.sheetOption}
+              onPress={() => {
+                setCallbackTarget(null);
+                initiateCall(user._id, user.name || user.number, user.profilePic, 'audio');
+              }}
+            >
+              <View style={[styles.sheetOptionIcon, { backgroundColor: 'rgba(74,222,128,0.12)' }]}>
+                <Ionicons name="call" size={22} color="#4ade80" />
+              </View>
+              <View style={styles.sheetOptionText}>
+                <Text style={styles.sheetOptionTitle}>Voice Call</Text>
+                <Text style={styles.sheetOptionSub}>Regular audio call</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.sheetOption}
+              onPress={() => {
+                setCallbackTarget(null);
+                initiateCall(user._id, user.name || user.number, user.profilePic, 'video');
+              }}
+            >
+              <View style={[styles.sheetOptionIcon, { backgroundColor: 'rgba(138,43,226,0.12)' }]}>
+                <Ionicons name="videocam" size={22} color={Colors.primary} />
+              </View>
+              <View style={styles.sheetOptionText}>
+                <Text style={styles.sheetOptionTitle}>Video Call</Text>
+                <Text style={styles.sheetOptionSub}>Face-to-face call</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.sheetCancel} onPress={() => setCallbackTarget(null)}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 
@@ -1540,6 +1599,74 @@ const styles = StyleSheet.create({
   },
   loader: {
     paddingVertical: 20,
+  },
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  sheetContainer: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  sheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    gap: 14,
+  },
+  sheetOptionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetOptionText: {
+    flex: 1,
+    gap: 2,
+  },
+  sheetOptionTitle: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  sheetOptionSub: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  sheetCancel: {
+    marginTop: 14,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+  },
+  sheetCancelText: {
+    color: Colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   scrollDownBtn: {
     position: 'absolute',
