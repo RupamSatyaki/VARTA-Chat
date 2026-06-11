@@ -39,6 +39,7 @@ interface Message {
   senderName?: string;
   receiverId?: string;
   timestamp: string;
+  fullDate: string; // ISO string for day comparison
   status?: 'sent' | 'delivered' | 'seen';
   replyTo?: {
     _id: string;
@@ -521,6 +522,7 @@ const ChatScreen: React.FC = () => {
           receiverId: m.receiver,
           status: m.status,
           timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          fullDate: m.createdAt,
           replyTo: m.replyTo,
           reactions: m.reactions,
           linkPreview: m.linkPreview,
@@ -662,6 +664,7 @@ const ChatScreen: React.FC = () => {
       receiverId: chat.isGroupChat ? null : user._id,
       status: 'sent',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      fullDate: new Date().toISOString(),
       replyTo: replyingTo ? {
         _id: replyingTo.id,
         content: replyingTo.content,
@@ -696,6 +699,7 @@ const ChatScreen: React.FC = () => {
             receiverId: newMessage.receiverId,
             status: chat.isGroupChat ? 'sent' : 'seen', 
             timestamp: newMessage.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            fullDate: newMessage.createdAt || new Date().toISOString(),
             replyTo: newMessage.replyTo,
             reactions: newMessage.reactions || [],
             linkPreview: newMessage.linkPreview,
@@ -882,6 +886,7 @@ const ChatScreen: React.FC = () => {
       receiverId: chat.isGroupChat ? null : user._id,
       status: 'sent',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      fullDate: new Date().toISOString(),
       replyTo: replyingTo ? {
         _id: replyingTo.id,
         content: replyingTo.content,
@@ -900,12 +905,46 @@ const ChatScreen: React.FC = () => {
     setReplyingTo(null);
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const formatDateDivider = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (messageDate.getTime() === today.getTime()) return 'TODAY';
+    if (messageDate.getTime() === yesterday.getTime()) return 'YESTERDAY';
+
+    return date.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric',
+    }).toUpperCase();
+  };
+
+  const shouldShowDateDivider = (item: Message, index: number) => {
+    if (index === 0) return true;
+    const prevItem = chatMessages[index - 1];
+    const prevDate = new Date(prevItem.fullDate).toDateString();
+    const currentDate = new Date(item.fullDate).toDateString();
+    return prevDate !== currentDate;
+  };
+
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMe = item.senderId === userData?._id;
     const isFirstUnread = item.id === firstUnreadId;
+    const showDateDivider = shouldShowDateDivider(item, index);
     
     return (
       <>
+        {showDateDivider && (
+          <View style={styles.dateDivider}>
+            <View style={styles.dateDividerContent}>
+              <Text style={styles.dateDividerText}>{formatDateDivider(item.fullDate)}</Text>
+            </View>
+          </View>
+        )}
         {isFirstUnread && (
           <View style={styles.unreadDivider}>
             <View style={styles.unreadDividerLine} />
@@ -1794,6 +1833,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  dateDivider: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  dateDividerContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  dateDividerText: {
+    color: Colors.white,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });
 
