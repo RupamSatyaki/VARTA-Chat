@@ -300,32 +300,56 @@ const MessageItem = React.memo(({
                     resizeMode="cover"
                   />
                 </View>
-              ) : item.type === 'call' && item.callMeta ? (
-                <View style={styles.callBubble}>
-                  <Ionicons
-                    name={item.callMeta.callType === 'video' ? 'videocam' : 'call'}
-                    size={18}
-                    color={item.callMeta.status === 'missed' || item.callMeta.status === 'rejected' ? '#FF6B6B' : '#4ade80'}
-                  />
-                  <View style={styles.callBubbleText}>
-                    <Text style={styles.callBubbleTitle}>
-                      {item.callMeta.callType === 'video' ? 'Video call' : 'Voice call'}
-                    </Text>
-                    <Text style={[
-                      styles.callBubbleStatus,
-                      (item.callMeta.status === 'missed' || item.callMeta.status === 'rejected') && { color: '#FF6B6B' }
-                    ]}>
-                      {item.callMeta.status === 'completed'
-                        ? item.callMeta.duration > 0
-                          ? `${Math.floor(item.callMeta.duration / 60)}:${String(item.callMeta.duration % 60).padStart(2, '0')}`
-                          : 'Connected'
-                        : item.callMeta.status === 'rejected'
-                        ? 'Declined'
-                        : 'Missed'}
-                    </Text>
+              ) : item.type === 'call' && item.callMeta ? (() => {
+                const missed = item.callMeta.status === 'missed' || item.callMeta.status === 'rejected';
+                const statusColor = missed ? '#FF6B6B' : '#4ade80';
+                const iconName = item.callMeta.callType === 'video' ? 'videocam' : 'call';
+                const callLabel = item.callMeta.callType === 'video' ? 'Video Call' : 'Voice Call';
+                const formatDuration = (s: number) => {
+                  if (s <= 0) return null;
+                  const m = Math.floor(s / 60);
+                  const sec = s % 60;
+                  return m > 0 ? `${m} min ${sec > 0 ? `${sec} sec` : ''}` : `${sec} sec`;
+                };
+                const statusLabel = item.callMeta.status === 'completed'
+                  ? formatDuration(item.callMeta.duration) ?? 'Connected'
+                  : item.callMeta.status === 'rejected' ? 'Declined' : 'Missed';
+
+                return (
+                  <View style={styles.callCard}>
+                    {/* Icon circle + call info */}
+                    <View style={styles.callCardTop}>
+                      <View style={[styles.callIconCircle, { backgroundColor: missed ? 'rgba(255,107,107,0.15)' : 'rgba(74,222,128,0.15)' }]}>
+                        <Ionicons name={iconName} size={22} color={statusColor} />
+                      </View>
+                      <View style={styles.callCardInfo}>
+                        <Text style={styles.callCardLabel}>{callLabel}</Text>
+                        <View style={styles.callCardStatusRow}>
+                          <Ionicons
+                            name={missed ? 'arrow-down' : (isMe ? 'arrow-up' : 'arrow-down')}
+                            size={11}
+                            color={statusColor}
+                          />
+                          <Text style={[styles.callCardStatus, { color: statusColor }]}>
+                            {statusLabel}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Divider */}
+                    <View style={styles.callCardDivider} />
+
+                    {/* Call back row */}
+                    <View style={styles.callCardFooter}>
+                      <Ionicons name={iconName} size={14} color={Colors.primary} />
+                      <Text style={styles.callBackText}>
+                        {item.callMeta.callType === 'video' ? 'Video call back' : 'Call back'}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              ) : (
+                );
+              })() : (
                 <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   <ClickableText 
                     text={item.content} 
@@ -1234,25 +1258,59 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
   },
-  callBubble: {
+  callCard: {
+    width: 210,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  callCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 2,
-    paddingRight: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    gap: 12,
   },
-  callBubbleText: {
-    flexDirection: 'column',
+  callIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  callBubbleTitle: {
+  callCardInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  callCardLabel: {
     color: Colors.white,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  callBubbleStatus: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 11,
-    marginTop: 1,
+  callCardStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  callCardStatus: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  callCardDivider: {
+    height: 0.5,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginHorizontal: 4,
+  },
+  callCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+  },
+  callBackText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   messageImageContainer: {
     width: 240,
