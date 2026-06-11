@@ -927,7 +927,7 @@ const ChatScreen: React.FC = () => {
           REACTIONS={REACTIONS}
           onCallBubblePress={setCallbackTarget}
         />
-      </<>
+      </>
     );
   };
 
