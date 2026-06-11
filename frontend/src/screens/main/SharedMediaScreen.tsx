@@ -124,6 +124,7 @@ const SharedMediaScreen: React.FC = () => {
 
     return (
       <FlatList
+        key={activeTab === 'Media' ? 'grid' : 'list'}
         data={currentData}
         keyExtractor={(item) => item._id}
         renderItem={activeTab === 'Media' ? renderMediaItem : activeTab === 'Links' ? renderLinkItem : renderDocItem}
