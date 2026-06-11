@@ -490,7 +490,7 @@ const ChatScreen: React.FC = () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.7, // Slightly lower for faster uploads
+      quality: 0.5, // Lower quality = smaller upload, Cloudinary handles final quality
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -509,10 +509,30 @@ const ChatScreen: React.FC = () => {
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
       if (Platform.OS === 'web') {
-        // On web, uri is a blob/data URL — fetch it and convert to File
+        // On web, uri is a blob/data URL — fetch it, resize via canvas, then upload
         const res = await fetch(uri);
         const blob = await res.blob();
-        const file = new File([blob], filename, { type: blob.type || type });
+
+        // Resize via canvas to max 1280px
+        const compressedBlob = await new Promise<Blob>((resolve) => {
+          const img = new window.Image();
+          img.onload = () => {
+            const MAX = 1280;
+            let { width, height } = img;
+            if (width > MAX || height > MAX) {
+              if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
+              else { width = Math.round((width * MAX) / height); height = MAX; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((b) => resolve(b || blob), 'image/jpeg', 0.75);
+          };
+          img.src = URL.createObjectURL(blob);
+        });
+
+        const file = new File([compressedBlob], filename.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
         formData.append('image', file);
       } else {
         // Native: use the RN-specific object structure

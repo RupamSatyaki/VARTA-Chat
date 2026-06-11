@@ -20,10 +20,18 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'varta_chat',
     allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'webp'],
-    transformation: [{ width: 1000, height: 1000, crop: 'limit' }], // Optimization
+    format: 'webp',                    // Convert all uploads to webp
+    transformation: [
+      { width: 1280, height: 1280, crop: 'limit' },  // Max dimension
+      { quality: 'auto:good' },                       // Cloudinary auto quality
+      { fetch_format: 'auto' },                       // Best format for browser
+    ],
   },
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max input size
+});
 
 module.exports = { cloudinary, upload };
