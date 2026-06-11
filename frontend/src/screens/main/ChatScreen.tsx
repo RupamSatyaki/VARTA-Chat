@@ -205,253 +205,253 @@ const MessageItem = React.memo(({
     </View>
   );
 
-  return (
-    <View style={[
-      styles.messageContainer, 
-      isSelected && styles.selectedMessageContainer,
-      isSelected && { zIndex: 9999, elevation: 11 }
-    ]}>
-      {isSelected && selectedMessages.length === 1 && (
-        <Animated.View 
-          entering={FadeInDown.duration(200)} 
-          exiting={FadeOut.duration(150)}
-          style={[
-            styles.reactionContainer, 
-            isMe ? { right: 15 } : { left: 15 }
-          ]}
+    return (
+      <View style={[
+        styles.messageContainer, 
+        isSelected && styles.selectedMessageContainer,
+        isSelected && { zIndex: 9999, elevation: 11 }
+      ]}>
+        <Swipeable
+          ref={swipeableRef}
+          renderLeftActions={item.isDeleted ? undefined : renderActions}
+          renderRightActions={item.isDeleted ? undefined : renderActions}
+          onSwipeableOpen={onSwipeOpen}
+          friction={2}
+          leftThreshold={40}
+          rightThreshold={40}
+          containerStyle={{ zIndex: isSelected ? 999 : 1 }}
         >
-          {REACTIONS.map((emoji) => (
-            <TouchableOpacity 
-              key={emoji} 
-              onPress={() => handleReaction(item.id, emoji)}
-              style={styles.reactionTouch}
-            >
-              <Text style={styles.reactionEmoji}>{emoji}</Text>
-            </TouchableOpacity>
-          ))}
-        </Animated.View>
-      )}
-      <Swipeable
-        ref={swipeableRef}
-        renderLeftActions={item.isDeleted ? undefined : renderActions}
-        renderRightActions={item.isDeleted ? undefined : renderActions}
-        onSwipeableOpen={onSwipeOpen}
-        friction={2}
-        leftThreshold={40}
-        rightThreshold={40}
-        containerStyle={{ zIndex: isSelected ? 999 : 1 }}
-      >
-        <TouchableOpacity 
-          activeOpacity={1}
-          onPress={toggleSelection}
-          onLongPress={onLongPress}
-          style={[
-            styles.messageWrapper, 
-            isMe ? styles.myMessageWrapper : styles.otherMessageWrapper,
-            isSelected && { zIndex: 1000, elevation: 10 }
-          ]}
-        >
+          <TouchableOpacity 
+            activeOpacity={1}
+            onPress={toggleSelection}
+            onLongPress={onLongPress}
+            style={[
+              styles.messageWrapper, 
+              isMe ? styles.myMessageWrapper : styles.otherMessageWrapper,
+              isSelected && { zIndex: 1000, elevation: 10 }
+            ]}
+          >
 
-          <View style={{ position: 'relative' }}>
-            <View style={[
-              styles.messageBubble, 
-              isMe ? styles.myBubble : styles.otherBubble,
-              isSelected && styles.activeBubble,
-              item.isDeleted && styles.deletedBubble
-            ]}>
-              {!isMe && chat.isGroupChat && item.senderName && (
-                <Text style={styles.senderName}>{item.senderName}</Text>
-              )}
-              
-              {item.replyTo && !item.isDeleted && (
-                <View style={styles.replyContext}>
-                  <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
-                  <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
-                </View>
-              )}
-
-              {item.linkPreview && !item.isDeleted && (
-                <TouchableOpacity 
-                  onPress={handleLinkPress}
-                  style={styles.linkPreviewContainer}
-                  disabled={selectedMessages.length > 0}
-                >
-                  {item.linkPreview.image && (
-                    <Image 
-                      source={{ uri: item.linkPreview.image }} 
-                      style={styles.linkImage} 
-                      resizeMode="cover"
-                    />
-                  )}
-                  <View style={styles.linkTextContainer}>
-                    {item.linkPreview.siteName && (
-                      <Text style={styles.linkSiteName}>{item.linkPreview.siteName}</Text>
-                    )}
-                    {item.linkPreview.title && (
-                      <Text style={styles.linkTitle} numberOfLines={2}>{item.linkPreview.title}</Text>
-                    )}
-                    {item.linkPreview.description && (
-                      <Text style={styles.linkDescription} numberOfLines={2}>{item.linkPreview.description}</Text>
-                    )}
+            <View style={{ position: 'relative' }}>
+              <View style={[
+                styles.messageBubble, 
+                isMe ? styles.myBubble : styles.otherBubble,
+                isSelected && styles.activeBubble,
+                item.isDeleted && styles.deletedBubble
+              ]}>
+                {!isMe && chat.isGroupChat && item.senderName && (
+                  <Text style={styles.senderName}>{item.senderName}</Text>
+                )}
+                
+                {item.replyTo && !item.isDeleted && (
+                  <View style={styles.replyContext}>
+                    <Text style={styles.replySender}>{item.replyTo.sender?.name}</Text>
+                    <Text style={styles.replyContent} numberOfLines={1}>{item.replyTo.content}</Text>
                   </View>
-                </TouchableOpacity>
-              )}
+                )}
 
-              {item.type === 'image' && !item.isDeleted ? (
-                <View style={styles.messageImageContainer}>
-                  <Image 
-                    source={{ uri: item.content }} 
-                    style={styles.messageImage} 
-                    resizeMode="cover"
-                  />
-                </View>
-              ) : item.type === 'call' && item.callMeta ? (() => {
-                const { status, callType, duration } = item.callMeta;
-                const missed  = status === 'missed';
-                const rejected = status === 'rejected';
-                const completed = status === 'completed';
-
-                // Status-specific colors
-                const statusColor = completed ? '#4ade80' : rejected ? '#f97316' : '#FF6B6B';
-                const bgColor = completed
-                  ? 'rgba(74,222,128,0.12)'
-                  : rejected
-                  ? 'rgba(249,115,22,0.12)'
-                  : 'rgba(255,107,107,0.12)';
-
-                // Main icon in circle — call type + direction
-                const mainIcon: any = callType === 'video'
-                  ? completed
-                    ? 'videocam'
-                    : rejected
-                    ? 'videocam-off'
-                    : 'videocam-off'
-                  : completed
-                    ? 'call'
-                    : rejected
-                    ? 'call'
-                    : 'call';
-
-                // Small badge icon on top-right of circle
-                const badgeIcon: any = completed
-                  ? (isMe ? 'arrow-up-circle' : 'arrow-down-circle')
-                  : rejected
-                  ? 'close-circle'
-                  : 'alert-circle';
-
-                const callLabel = callType === 'video' ? 'Video Call' : 'Voice Call';
-
-                const formatDuration = (s: number) => {
-                  if (s <= 0) return null;
-                  const m = Math.floor(s / 60);
-                  const sec = s % 60;
-                  return m > 0 ? `${m} min ${sec > 0 ? `${sec} sec` : ''}` : `${sec} sec`;
-                };
-
-                const statusLabel = completed
-                  ? formatDuration(duration) ?? 'Connected'
-                  : rejected
-                  ? 'Declined'
-                  : 'Missed';
-
-                const directionLabel = isMe
-                  ? completed ? 'Outgoing' : 'Cancelled'
-                  : completed ? 'Incoming' : missed ? 'Missed' : 'Declined';
-
-                const joinedParticipants = item.callMeta.participants?.filter(p => p.status === 'joined') || [];
-
-                return (
-                  <TouchableOpacity activeOpacity={0.85} onPress={() => onCallBubblePress(item)} style={styles.callCard}>
-                    {/* Icon circle + call info */}
-                    <View style={styles.callCardTop}>
-                      <View style={styles.callIconWrapper}>
-                        <View style={[styles.callIconCircle, { backgroundColor: bgColor }]}>
-                          <Ionicons name={mainIcon} size={22} color={statusColor} />
-                        </View>
-                        {/* Badge */}
-                        <View style={[styles.callIconBadge, { backgroundColor: Colors.background }]}>
-                          <Ionicons name={badgeIcon} size={14} color={statusColor} />
-                        </View>
-                      </View>
-                      <View style={styles.callCardInfo}>
-                        <Text style={styles.callCardLabel}>{callLabel}</Text>
-                        <Text style={styles.callCardDirection}>{directionLabel}</Text>
-                        
-                        {/* Show joined participants for group calls */}
-                        {chat.isGroupChat && joinedParticipants.length > 0 ? (
-                          <View style={styles.joinedParticipantsContainer}>
-                            <Text style={styles.joinedLabel}>Joined:</Text>
-                            <Text style={styles.joinedNames} numberOfLines={1}>
-                              {joinedParticipants.map(p => p.name).join(', ')}
-                            </Text>
-                          </View>
-                        ) : (
-                          <View style={styles.callCardStatusRow}>
-                            <Ionicons
-                              name={completed ? 'time-outline' : 'close-outline'}
-                              size={11}
-                              color={statusColor}
-                            />
-                            <Text style={[styles.callCardStatus, { color: statusColor }]}>
-                              {statusLabel}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-
-                    {/* Divider */}
-                    <View style={styles.callCardDivider} />
-
-                    {/* Call back row */}
-                    <View style={styles.callCardFooter}>
-                      <Ionicons name={callType === 'video' ? 'videocam' : 'call'} size={14} color={Colors.primary} />
-                      <Text style={styles.callBackText}>
-                        {callType === 'video' ? 'Video call back' : 'Call back'}
-                      </Text>
+                {item.linkPreview && !item.isDeleted && (
+                  <TouchableOpacity 
+                    onPress={handleLinkPress}
+                    style={styles.linkPreviewContainer}
+                    disabled={selectedMessages.length > 0}
+                  >
+                    {item.linkPreview.image && (
+                      <Image 
+                        source={{ uri: item.linkPreview.image }} 
+                        style={styles.linkImage} 
+                        resizeMode="cover"
+                      />
+                    )}
+                    <View style={styles.linkTextContainer}>
+                      {item.linkPreview.siteName && (
+                        <Text style={styles.linkSiteName}>{item.linkPreview.siteName}</Text>
+                      )}
+                      {item.linkPreview.title && (
+                        <Text style={styles.linkTitle} numberOfLines={2}>{item.linkPreview.title}</Text>
+                      )}
+                      {item.linkPreview.description && (
+                        <Text style={styles.linkDescription} numberOfLines={2}>{item.linkPreview.description}</Text>
+                      )}
                     </View>
                   </TouchableOpacity>
-                );
-              })() : (
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                  <ClickableText 
-                    text={item.content} 
-                    style={[
-                      styles.messageText,
-                      item.isDeleted && styles.deletedText
-                    ]}
-                    disabled={selectedMessages.length > 0}
-                  />
-                  {item.isEdited && !item.isDeleted && (
-                    <Text style={styles.editedTag}> (edited)</Text>
+                )}
+
+                {item.type === 'image' && !item.isDeleted ? (
+                  <View style={styles.messageImageContainer}>
+                    <Image 
+                      source={{ uri: item.content }} 
+                      style={styles.messageImage} 
+                      resizeMode="cover"
+                    />
+                  </View>
+                ) : item.type === 'call' && item.callMeta ? (() => {
+                  const { status, callType, duration } = item.callMeta;
+                  const missed  = status === 'missed';
+                  const rejected = status === 'rejected';
+                  const completed = status === 'completed';
+
+                  // Status-specific colors
+                  const statusColor = completed ? '#4ade80' : rejected ? '#f97316' : '#FF6B6B';
+                  const bgColor = completed
+                    ? 'rgba(74,222,128,0.12)'
+                    : rejected
+                    ? 'rgba(249,115,22,0.12)'
+                    : 'rgba(255,107,107,0.12)';
+
+                  // Main icon in circle — call type + direction
+                  const mainIcon: any = callType === 'video'
+                    ? completed
+                      ? 'videocam'
+                      : rejected
+                      ? 'videocam-off'
+                      : 'videocam-off'
+                    : completed
+                      ? 'call'
+                      : rejected
+                      ? 'call'
+                      : 'call';
+
+                  // Small badge icon on top-right of circle
+                  const badgeIcon: any = completed
+                    ? (isMe ? 'arrow-up-circle' : 'arrow-down-circle')
+                    : rejected
+                    ? 'close-circle'
+                    : 'alert-circle';
+
+                  const callLabel = callType === 'video' ? 'Video Call' : 'Voice Call';
+
+                  const formatDuration = (s: number) => {
+                    if (s <= 0) return null;
+                    const m = Math.floor(s / 60);
+                    const sec = s % 60;
+                    return m > 0 ? `${m} min ${sec > 0 ? `${sec} sec` : ''}` : `${sec} sec`;
+                  };
+
+                  const statusLabel = completed
+                    ? formatDuration(duration) ?? 'Connected'
+                    : rejected
+                    ? 'Declined'
+                    : 'Missed';
+
+                  const directionLabel = isMe
+                    ? completed ? 'Outgoing' : 'Cancelled'
+                    : completed ? 'Incoming' : missed ? 'Missed' : 'Declined';
+
+                  const joinedParticipants = item.callMeta.participants?.filter(p => p.status === 'joined') || [];
+
+                  return (
+                    <TouchableOpacity activeOpacity={0.85} onPress={() => onCallBubblePress(item)} style={styles.callCard}>
+                      {/* Icon circle + call info */}
+                      <View style={styles.callCardTop}>
+                        <View style={styles.callIconWrapper}>
+                          <View style={[styles.callIconCircle, { backgroundColor: bgColor }]}>
+                            <Ionicons name={mainIcon} size={22} color={statusColor} />
+                          </View>
+                          {/* Badge */}
+                          <View style={[styles.callIconBadge, { backgroundColor: Colors.background }]}>
+                            <Ionicons name={badgeIcon} size={14} color={statusColor} />
+                          </View>
+                        </View>
+                        <View style={styles.callCardInfo}>
+                          <Text style={styles.callCardLabel}>{callLabel}</Text>
+                          <Text style={styles.callCardDirection}>{directionLabel}</Text>
+                          
+                          {/* Show joined participants for group calls */}
+                          {chat.isGroupChat && joinedParticipants.length > 0 ? (
+                            <View style={styles.joinedParticipantsContainer}>
+                              <Text style={styles.joinedLabel}>Joined:</Text>
+                              <Text style={styles.joinedNames} numberOfLines={1}>
+                                {joinedParticipants.map(p => p.name).join(', ')}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={styles.callCardStatusRow}>
+                              <Ionicons
+                                name={completed ? 'time-outline' : 'close-outline'}
+                                size={11}
+                                color={statusColor}
+                              />
+                              <Text style={[styles.callCardStatus, { color: statusColor }]}>
+                                {statusLabel}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+
+                      {/* Divider */}
+                      <View style={styles.callCardDivider} />
+
+                      {/* Call back row */}
+                      <View style={styles.callCardFooter}>
+                        <Ionicons name={callType === 'video' ? 'videocam' : 'call'} size={14} color={Colors.primary} />
+                        <Text style={styles.callBackText}>
+                          {callType === 'video' ? 'Video call back' : 'Call back'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })() : (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <ClickableText 
+                      text={item.content} 
+                      style={[
+                        styles.messageText,
+                        item.isDeleted && styles.deletedText
+                      ]}
+                      disabled={selectedMessages.length > 0}
+                    />
+                    {item.isEdited && !item.isDeleted && (
+                      <Text style={styles.editedTag}> (edited)</Text>
+                    )}
+                  </View>
+                )}
+                
+                <View style={styles.messageFooter}>
+                  <Text style={styles.timestamp}>{item.timestamp}</Text>
+                  {renderStatusIcon()}
+                </View>
+              </View>
+
+              {item.reactions && item.reactions.length > 0 && !item.isDeleted && (
+                <View style={[
+                  styles.messageReactions,
+                  isMe ? { right: 6 } : { left: 6 }
+                ]}>
+                  {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
+                    <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
+                  ))}
+                  {item.reactions.length > 1 && (
+                    <Text style={styles.reactionCount}>{item.reactions.length}</Text>
                   )}
                 </View>
               )}
-              
-              <View style={styles.messageFooter}>
-                <Text style={styles.timestamp}>{item.timestamp}</Text>
-                {renderStatusIcon()}
-              </View>
             </View>
-
-            {item.reactions && item.reactions.length > 0 && !item.isDeleted && (
-              <View style={[
-                styles.messageReactions,
-                isMe ? { right: 6 } : { left: 6 }
-              ]}>
-                {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
-                  <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
-                ))}
-                {item.reactions.length > 1 && (
-                  <Text style={styles.reactionCount}>{item.reactions.length}</Text>
-                )}
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Swipeable>
-    </View>
-  );
+          </TouchableOpacity>
+        </Swipeable>
+        {isSelected && selectedMessages.length === 1 && (
+          <Animated.View 
+            entering={FadeInDown.duration(200)} 
+            exiting={FadeOut.duration(150)}
+            style={[
+              styles.reactionContainer, 
+              isMe ? { right: 15 } : { left: 15 }
+            ]}
+          >
+            {REACTIONS.map((emoji) => (
+              <TouchableOpacity 
+                key={emoji} 
+                onPress={() => handleReaction(item.id, emoji)}
+                style={styles.reactionTouch}
+              >
+                <Text style={styles.reactionEmoji}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </Animated.View>
+        )}
+      </View>
+    );
 });
 
 const ChatScreen: React.FC = () => {
