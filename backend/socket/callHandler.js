@@ -238,8 +238,10 @@ module.exports = (ioInstance, socket) => {
       try {
         const call = await Call.findById(id);
         if (call) {
-          // If it's a group call, maybe just mark this user as 'left'
-          if (userId) {
+          const isCallerEnding = userId?.toString() === call.caller.toString();
+          
+          // 1. Update participant status if it's a participant ending
+          if (userId && !isCallerEnding) {
             await Call.updateOne(
               { _id: id, 'participants.user': userId },
               { 
@@ -251,11 +253,12 @@ module.exports = (ioInstance, socket) => {
             );
           }
 
-          // If everyone left or caller ended it, mark call as completed
+          // 2. Decide if call should be fully closed
           const currentCallState = await Call.findById(id);
           const activeParticipants = currentCallState.participants.filter(p => p.status === 'joined');
           
-          if (activeParticipants.length === 0 || userId?.toString() === call.caller.toString()) {
+          // Close call if: Caller ended it OR no active participants left
+          if (isCallerEnding || activeParticipants.length === 0) {
             const endedAt = new Date();
             const calculatedDuration = duration || Math.floor((endedAt - call.startedAt) / 1000);
             const callStatus = calculatedDuration > 0 ? 'completed' : 'missed';
@@ -269,28 +272,36 @@ module.exports = (ioInstance, socket) => {
             if (updatedCall) {
               await saveCallMessage(id);
               
-              io.to(updatedCall.caller.toString()).emit('call-log-updated');
-              // Notify everyone in the group/call
-              updatedCall.participants.forEach(p => {
-                io.to(p.user.toString()).emit('call-log-updated');
+              // Signal EVERYONE to close their call modal
+              const notifyIds = [updatedCall.caller.toString(), ...updatedCall.participants.map(p => p.user.toString())];
+              notifyIds.forEach(targetId => {
+                io.to(targetId).emit('call-ended');
+                io.to(targetId).emit('call-log-updated');
               });
             }
           } else {
-            // Just broadcast the update that one user left
+            // Participant left, but call continues for others
             const updatedCall = await Call.findById(id).populate('participants.user', 'name profilePic');
             const callerId = updatedCall.caller.toString();
-            const allNotifyIds = [callerId, ...updatedCall.participants.map(p => p.user._id.toString())];
-            allNotifyIds.forEach(target => {
+            
+            // Just update the UI for remaining people
+            const remainingPeople = [callerId, ...updatedCall.participants.map(p => p.user._id.toString())];
+            remainingPeople.forEach(target => {
               io.to(target).emit('call-participants-update', updatedCall.participants);
             });
+            
+            // Only emit 'call-ended' to the person who actually clicked end
+            socket.emit('call-ended');
           }
         }
       } catch (error) {
         console.error('Error ending call log:', error);
       }
+    } else {
+      // Fallback for direct signaling
+      socket.to(to).emit('call-ended');
     }
     
-    socket.to(to).emit('call-ended');
     socket.currentCallId = null;
   };
 
