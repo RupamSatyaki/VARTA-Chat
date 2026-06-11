@@ -76,7 +76,7 @@ const fetchChats = async (req, res) => {
       const unreadCount = await Message.countDocuments({
         chat: chat._id,
         sender: { $ne: req.user._id },
-        readBy: { $ne: req.user._id }
+        'readBy.user': { $ne: req.user._id }
       });
       return { ...chat._doc, unreadCount };
     }));

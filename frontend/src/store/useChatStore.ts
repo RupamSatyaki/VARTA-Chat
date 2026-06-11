@@ -25,6 +25,8 @@ interface Message {
   };
   isEdited?: boolean;
   isDeleted?: boolean;
+  readBy?: { user: string; readAt: string }[];
+  deliveredTo?: { user: string; deliveredAt: string }[];
 }
 
 interface Chat {
@@ -181,12 +183,21 @@ export const useChatStore = create<ChatState>((set) => ({
       };
     }),
 
-  markMessagesAsSeen: (chatId, senderId) =>
+  markMessagesAsSeen: (chatId, currentUserId) =>
     set((state) => {
       const chatMessages = state.messages[chatId] || [];
-      const updatedMessages = chatMessages.map((m) =>
-        m.senderId === senderId && m.status !== 'seen' ? { ...m, status: 'seen' as const } : m
-      );
+      const updatedMessages = chatMessages.map((m) => {
+        // If I am NOT the sender and I am NOT in the readBy array, add me
+        const alreadyRead = m.readBy?.some(r => r.user === currentUserId);
+        if (m.senderId !== currentUserId && !alreadyRead) {
+          return { 
+            ...m, 
+            status: 'seen' as const,
+            readBy: [...(m.readBy || []), { user: currentUserId, readAt: new Date().toISOString() }]
+          };
+        }
+        return m;
+      });
       return {
         messages: { ...state.messages, [chatId]: updatedMessages }
       };
@@ -208,11 +219,16 @@ export const useChatStore = create<ChatState>((set) => ({
         createdAt: messageData.createdAt || new Date().toISOString(),
         sender: {
           _id: messageData.senderId || messageData.sender,
-        }
+        },
+        readBy: messageData.readBy || []
       };
 
       if (!isMe) {
-        targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
+        // Check if I'm already in readBy (just in case)
+        const alreadyRead = messageData.readBy?.some((r: any) => r.user === (state as any).currentUserId);
+        if (!alreadyRead) {
+          targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
+        }
       }
 
       updatedChats.splice(chatIndex, 1);
@@ -232,11 +248,12 @@ export const useChatStore = create<ChatState>((set) => ({
       })
     })),
 
-  syncChatSeen: (chatId, receiverId, currentUserId) =>
-    set((state) => ({
-      chats: state.chats.map(chat => {
+  syncChatSeen: (chatId, viewerId, currentUserId) =>
+    set((state) => {
+      const isMeViewer = viewerId === currentUserId;
+      
+      const newChats = state.chats.map(chat => {
         if (chat._id === chatId) {
-          const isMeReceiver = receiverId === currentUserId;
           const isMeSender = chat.latestMessage && (
             (typeof chat.latestMessage.sender === 'string' && chat.latestMessage.sender === currentUserId) ||
             (typeof chat.latestMessage.sender === 'object' && chat.latestMessage.sender._id === currentUserId)
@@ -244,15 +261,33 @@ export const useChatStore = create<ChatState>((set) => ({
 
           return {
             ...chat,
-            unreadCount: isMeReceiver ? 0 : chat.unreadCount,
+            unreadCount: isMeViewer ? 0 : chat.unreadCount,
             latestMessage: (isMeSender && chat.latestMessage) 
               ? { ...chat.latestMessage, status: 'seen' } 
               : chat.latestMessage
           };
         }
         return chat;
-      })
-    })),
+      });
+
+      // Also update messages in this chat locally
+      const chatMessages = state.messages[chatId] || [];
+      const updatedMessages = chatMessages.map(m => {
+        if (m.senderId !== viewerId && !m.readBy?.some(r => r.user === viewerId)) {
+          return {
+            ...m,
+            status: m.senderId === currentUserId ? 'seen' as const : m.status,
+            readBy: [...(m.readBy || []), { user: viewerId, readAt: new Date().toISOString() }]
+          };
+        }
+        return m;
+      });
+
+      return { 
+        chats: newChats,
+        messages: { ...state.messages, [chatId]: updatedMessages }
+      };
+    }),
 
   clearChat: (chatId) =>
     set((state) => {

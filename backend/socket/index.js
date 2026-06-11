@@ -26,6 +26,7 @@ const initSocket = (server) => {
       
       socket.join(userData._id);
       onlineUsers.set(userData._id, socket.id);
+      socket.userId = userData._id; // Store for handlers
       
       console.log(`👤 User joined room: ${userData._id}`);
 

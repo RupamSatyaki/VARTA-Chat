@@ -86,7 +86,7 @@ module.exports = (io, socket) => {
         linkPreview: linkPreviewData,
         // For 1-on-1, receiver is the other user. For group, it can be null.
         receiver: chat.isGroupChat ? null : chat.users.find(u => u._id.toString() !== senderId.toString())?._id,
-        readBy: [senderId] // Sender has obviously read their own message
+        readBy: [{ user: senderId, readAt: Date.now() }] // Sender has obviously read their own message
       });
 
       console.log(`💾 Message saved to DB: ${message._id}`);
@@ -189,10 +189,17 @@ module.exports = (io, socket) => {
   // Handle message delivered (Receiver got the message)
   const messageDelivered = async ({ messageId, senderId }) => {
     try {
-      // ONLY update to delivered if current status is 'sent'
+      const receiverId = socket.userId;
+      if (!receiverId) return;
+
+      // Update global status and add to detailed deliveredTo array
       const message = await Message.findOneAndUpdate(
-        { _id: messageId, status: 'sent' },
-        { status: 'delivered', deliveredAt: Date.now() },
+        { _id: messageId, 'deliveredTo.user': { $ne: receiverId } },
+        { 
+          status: 'delivered', 
+          deliveredAt: Date.now(),
+          $push: { deliveredTo: { user: receiverId, deliveredAt: Date.now() } } 
+        },
         { new: true }
       );
 
@@ -203,7 +210,7 @@ module.exports = (io, socket) => {
           chatId: message.chat,
           status: 'delivered'
         });
-        console.log(`✔ Message ${messageId} marked as delivered`);
+        console.log(`✔ Message ${messageId} marked as delivered to ${receiverId}`);
       }
     } catch (error) {
       console.error('❌ Error in message-delivered:', error.message);
@@ -213,16 +220,25 @@ module.exports = (io, socket) => {
   // Handle message seen (Receiver opened the chat)
   const messageSeen = async ({ chatId, senderId, receiverId }) => {
     try {
-      // 1. Add the receiver to the readBy array for all messages they haven't read yet
+      const viewerId = receiverId || socket.userId;
+      if (!viewerId) return;
+
+      // 1. Add the viewer to the readBy array for all messages they haven't read yet
       await Message.updateMany(
-        { chat: chatId, sender: { $ne: receiverId }, readBy: { $ne: receiverId } },
-        { $addToSet: { readBy: receiverId } }
+        { 
+          chat: chatId, 
+          sender: { $ne: viewerId }, 
+          'readBy.user': { $ne: viewerId } 
+        },
+        { 
+          $push: { readBy: { user: viewerId, readAt: Date.now() } } 
+        }
       );
 
-      // 2. For 1-on-1 chats, we still update the status to 'seen' for UI ticks
-      if (senderId && receiverId) {
+      // 2. For 1-on-1 chats, we still update the global status to 'seen' for UI ticks
+      if (senderId && viewerId) {
         await Message.updateMany(
-          { chat: chatId, sender: senderId, receiver: receiverId, status: { $ne: 'seen' } },
+          { chat: chatId, sender: senderId, receiver: viewerId, status: { $ne: 'seen' } },
           { status: 'seen', seenAt: Date.now() }
         );
 
@@ -230,14 +246,13 @@ module.exports = (io, socket) => {
         socket.in(senderId).emit('messages-seen', {
           chatId,
           senderId,
-          receiverId
+          receiverId: viewerId
         });
       } else {
         // For group chats, we broadcast to the room that someone read messages
-        // (This can be used to update unread counts for that user on other devices)
         socket.to(chatId).emit('messages-seen', {
           chatId,
-          receiverId
+          receiverId: viewerId
         });
       }
 
@@ -245,10 +260,10 @@ module.exports = (io, socket) => {
       socket.emit('messages-seen', {
         chatId,
         senderId,
-        receiverId
+        receiverId: viewerId
       });
       
-      console.log(`✔ Messages in chat ${chatId} marked as seen by ${receiverId}`);
+      console.log(`✔ Messages in chat ${chatId} marked as seen by ${viewerId}`);
     } catch (error) {
       console.error('❌ Error in message-seen:', error.message);
     }

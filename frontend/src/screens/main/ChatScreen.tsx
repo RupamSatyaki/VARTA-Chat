@@ -553,6 +553,8 @@ const ChatScreen: React.FC = () => {
           isEdited: m.isEdited,
           isDeleted: m.isDeleted,
           callMeta: m.callMeta,
+          readBy: m.readBy,
+          deliveredTo: m.deliveredTo,
         }));
         
         if (formattedMessages.length < 20) {
@@ -565,8 +567,9 @@ const ChatScreen: React.FC = () => {
           appendMessages(chat._id, formattedMessages);
         } else {
           // Initial load: Find first unread message
+          // A message is unread if I am NOT in the readBy array
           const firstUnread = [...formattedMessages].reverse().find((m: Message) => 
-            m.senderId !== userData?._id && m.status !== 'seen'
+            m.senderId !== userData?._id && !m.readBy?.some(r => r.user === userData?._id)
           );
           if (firstUnread) {
             setFirstUnreadId(firstUnread.id);
@@ -749,6 +752,8 @@ const ChatScreen: React.FC = () => {
             isEdited: newMessage.isEdited,
             isDeleted: newMessage.isDeleted,
             callMeta: newMessage.callMeta,
+            readBy: newMessage.readBy || [],
+            deliveredTo: newMessage.deliveredTo || [],
           };
           addMessage(chat._id, formattedMsg);
 
