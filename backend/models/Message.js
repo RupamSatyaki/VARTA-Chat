@@ -23,7 +23,7 @@ const messageSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'file'],
+    enum: ['text', 'image', 'video', 'audio', 'file', 'call'],
     default: 'text',
   },
   status: {
@@ -71,6 +71,11 @@ const messageSchema = new mongoose.Schema({
   isDeleted: {
     type: Boolean,
     default: false,
+  },
+  callMeta: {
+    callType: { type: String, enum: ['audio', 'video'] },
+    status:   { type: String, enum: ['completed', 'missed', 'rejected'] },
+    duration: { type: Number, default: 0 },
   },
 }, {
   timestamps: true,

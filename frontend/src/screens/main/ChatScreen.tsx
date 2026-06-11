@@ -53,6 +53,11 @@ interface Message {
   };
   isEdited?: boolean;
   isDeleted?: boolean;
+  callMeta?: {
+    callType: 'audio' | 'video';
+    status: 'completed' | 'missed' | 'rejected';
+    duration: number;
+  };
 }
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -295,6 +300,31 @@ const MessageItem = React.memo(({
                     resizeMode="cover"
                   />
                 </View>
+              ) : item.type === 'call' && item.callMeta ? (
+                <View style={styles.callBubble}>
+                  <Ionicons
+                    name={item.callMeta.callType === 'video' ? 'videocam' : 'call'}
+                    size={18}
+                    color={item.callMeta.status === 'missed' || item.callMeta.status === 'rejected' ? '#FF6B6B' : '#4ade80'}
+                  />
+                  <View style={styles.callBubbleText}>
+                    <Text style={styles.callBubbleTitle}>
+                      {item.callMeta.callType === 'video' ? 'Video call' : 'Voice call'}
+                    </Text>
+                    <Text style={[
+                      styles.callBubbleStatus,
+                      (item.callMeta.status === 'missed' || item.callMeta.status === 'rejected') && { color: '#FF6B6B' }
+                    ]}>
+                      {item.callMeta.status === 'completed'
+                        ? item.callMeta.duration > 0
+                          ? `${Math.floor(item.callMeta.duration / 60)}:${String(item.callMeta.duration % 60).padStart(2, '0')}`
+                          : 'Connected'
+                        : item.callMeta.status === 'rejected'
+                        ? 'Declined'
+                        : 'Missed'}
+                    </Text>
+                  </View>
+                </View>
               ) : (
                 <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   <ClickableText 
@@ -421,6 +451,7 @@ const ChatScreen: React.FC = () => {
           linkPreview: m.linkPreview,
           isEdited: m.isEdited,
           isDeleted: m.isDeleted,
+          callMeta: m.callMeta,
         }));
         setMessages(chat._id, formattedMessages);
         
@@ -566,6 +597,7 @@ const ChatScreen: React.FC = () => {
             linkPreview: newMessage.linkPreview,
             isEdited: newMessage.isEdited,
             isDeleted: newMessage.isDeleted,
+            callMeta: newMessage.callMeta,
           };
           addMessage(chat._id, formattedMsg);
 
@@ -1181,6 +1213,26 @@ const styles = StyleSheet.create({
   replyContent: {
     color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
+  },
+  callBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 2,
+    paddingRight: 6,
+  },
+  callBubbleText: {
+    flexDirection: 'column',
+  },
+  callBubbleTitle: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  callBubbleStatus: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    marginTop: 1,
   },
   messageImageContainer: {
     width: 240,

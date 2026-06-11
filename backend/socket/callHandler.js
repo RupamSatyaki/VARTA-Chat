@@ -2,8 +2,56 @@
  * Call-related Socket event handlers for WebRTC signaling
  */
 const Call = require('../models/Call');
+const Message = require('../models/Message');
+const Chat = require('../models/Chat');
 
-module.exports = (io, socket) => {
+// Helper: save a call event as a message in the 1-on-1 chat
+const saveCallMessage = async (callerId, receiverId, callType, status, duration = 0) => {
+  try {
+    const chat = await Chat.findOne({
+      isGroupChat: false,
+      users: { $all: [callerId, receiverId] }
+    });
+    if (!chat) return;
+
+    const durationText = duration > 0
+      ? ` (${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')})`
+      : '';
+    const label = `${callType === 'video' ? 'Video' : 'Audio'} call${durationText}`;
+
+    const msg = await Message.create({
+      sender: callerId,
+      receiver: receiverId,
+      chat: chat._id,
+      content: label,
+      type: 'call',
+      status: 'sent',
+      readBy: [callerId],
+      callMeta: { callType, status, duration },
+    });
+
+    await Chat.findByIdAndUpdate(chat._id, { latestMessage: msg._id });
+
+    // Emit to both users so ChatScreen updates live
+    io.to(callerId.toString()).to(receiverId.toString()).emit('message-received', {
+      _id: msg._id,
+      chatId: chat._id,
+      content: label,
+      type: 'call',
+      senderId: callerId,
+      status: 'sent',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      callMeta: { callType, status, duration },
+    });
+  } catch (err) {
+    console.error('Error saving call message:', err.message);
+  }
+};
+
+let io; // Will be set from module export
+
+module.exports = (ioInstance, socket) => {
+  io = ioInstance;
   
   // Initiate a call
   const callUser = async ({ to, from, signalData, fromName, fromPic, type }) => {
@@ -68,6 +116,7 @@ module.exports = (io, socket) => {
         
         if (updatedCall) {
           io.to(updatedCall.caller.toString()).to(updatedCall.receiver.toString()).emit('call-log-updated');
+          await saveCallMessage(updatedCall.caller, updatedCall.receiver, updatedCall.type, 'rejected', 0);
         }
       } catch (error) {
         console.error('Error updating call rejection:', error);
@@ -94,15 +143,17 @@ module.exports = (io, socket) => {
         if (call && call.status === 'ongoing') {
           const endedAt = new Date();
           const calculatedDuration = duration || Math.floor((endedAt - call.startedAt) / 1000);
-          
+          const callStatus = calculatedDuration > 0 ? 'completed' : 'missed';
+
           const updatedCall = await Call.findByIdAndUpdate(id, {
-            status: 'completed',
+            status: callStatus,
             endedAt: endedAt,
             duration: calculatedDuration > 0 ? calculatedDuration : 0
           }, { new: true });
 
           if (updatedCall) {
             io.to(updatedCall.caller.toString()).to(updatedCall.receiver.toString()).emit('call-log-updated');
+            await saveCallMessage(updatedCall.caller, updatedCall.receiver, updatedCall.type, callStatus, calculatedDuration > 0 ? calculatedDuration : 0);
           }
         }
       } catch (error) {
