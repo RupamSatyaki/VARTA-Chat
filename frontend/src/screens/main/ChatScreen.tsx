@@ -1388,6 +1388,7 @@ const styles = StyleSheet.create({
   },
   selectedMessageContainer: {
     backgroundColor: 'rgba(52, 183, 241, 0.12)',
+    paddingTop: 65, // Reserve space for the reaction container to prevent it from going behind the message above
   },
   messageBubble: {
     paddingHorizontal: 13,
@@ -1637,7 +1638,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 30,
     position: 'absolute',
-    top: -52,
+    top: 8,
     zIndex: 10000,
     elevation: 25,
     shadowColor: '#000',
