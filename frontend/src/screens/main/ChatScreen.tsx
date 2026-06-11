@@ -990,15 +990,6 @@ const ChatScreen: React.FC = () => {
     
     return (
       <>
-        {isFirstUnread && (
-          <View style={styles.unreadDivider}>
-            <View style={styles.unreadDividerLine} />
-            <View style={styles.unreadDividerContent}>
-              <Text style={styles.unreadDividerText}>UNREAD MESSAGES</Text>
-            </View>
-            <View style={styles.unreadDividerLine} />
-          </View>
-        )}
         <MessageItem
           item={item}
           isMe={isMe}
@@ -1011,6 +1002,15 @@ const ChatScreen: React.FC = () => {
           REACTIONS={REACTIONS}
           onCallBubblePress={setCallbackTarget}
         />
+        {isFirstUnread && (
+          <View style={styles.unreadDivider}>
+            <View style={styles.unreadDividerLine} />
+            <View style={styles.unreadDividerContent}>
+              <Text style={styles.unreadDividerText}>UNREAD MESSAGES</Text>
+            </View>
+            <View style={styles.unreadDividerLine} />
+          </View>
+        )}
         {showDateDivider && (
           <View style={styles.dateDivider}>
             <View style={styles.dateDividerContent}>
