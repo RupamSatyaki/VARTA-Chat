@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -6,99 +6,133 @@ import {
   FlatList, 
   Image, 
   TouchableOpacity, 
-  StatusBar 
+  StatusBar,
+  RefreshControl,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../theme/colors';
 import { useCall } from '../../context/CallContext';
-
-// Dummy data for call logs since we don't have a backend model yet
-const DUMMY_CALLS = [
-  {
-    id: '1',
-    name: 'Aman Deep',
-    type: 'video',
-    status: 'incoming', // incoming, outgoing, missed
-    time: 'Today, 2:30 PM',
-    profilePic: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-  },
-  {
-    id: '2',
-    name: 'Vikram Singh',
-    type: 'audio',
-    status: 'missed',
-    time: 'Today, 10:15 AM',
-    profilePic: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-  },
-  {
-    id: '3',
-    name: 'Rahul Kumar',
-    type: 'video',
-    status: 'outgoing',
-    time: 'Yesterday, 9:45 PM',
-    profilePic: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-  },
-  {
-    id: '4',
-    name: 'Sonia Sharma',
-    type: 'audio',
-    status: 'incoming',
-    time: 'June 10, 4:20 PM',
-    profilePic: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-  },
-];
+import { useAuthStore } from '../../store/useAuthStore';
+import apiClient from '../../api/apiClient';
 
 const CallsScreen: React.FC = () => {
   const { initiateCall } = useCall();
+  const { userData } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'all' | 'missed'>('all');
+  const [calls, setCalls] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredCalls = activeTab === 'all' 
-    ? DUMMY_CALLS 
-    : DUMMY_CALLS.filter(call => call.status === 'missed');
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'incoming':
-        return <MaterialCommunityIcons name="call-received" size={16} color="#4CAF50" />;
-      case 'outgoing':
-        return <MaterialCommunityIcons name="call-made" size={16} color={Colors.primary} />;
-      case 'missed':
-        return <MaterialCommunityIcons name="call-missed" size={16} color="#F44336" />;
-      default:
-        return null;
+  const fetchCallHistory = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      const response = await apiClient.get('/calls');
+      if (response.data) {
+        setCalls(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching call history:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchCallHistory();
+  }, [fetchCallHistory]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchCallHistory(false);
   };
 
-  const renderCallItem = ({ item }: { item: any }) => (
-    <View style={styles.callItem}>
-      <Image source={{ uri: item.profilePic }} style={styles.avatar} />
-      <View style={styles.callInfo}>
-        <Text style={[styles.name, item.status === 'missed' && { color: '#F44336' }]}>
-          {item.name}
-        </Text>
-        <View style={styles.statusRow}>
-          {getStatusIcon(item.status)}
-          <Text style={styles.time}>{item.time}</Text>
-        </View>
-      </View>
-      <TouchableOpacity 
-        style={styles.callAction}
-        onPress={() => initiateCall('dummy-id', item.name, item.profilePic, item.type as 'video' | 'audio')}
-      >
-        <Ionicons 
-          name={item.type === 'video' ? 'videocam' : 'call'} 
-          size={24} 
-          color={Colors.primary} 
+  const filteredCalls = activeTab === 'all' 
+    ? calls 
+    : calls.filter(call => call.status === 'missed' || (call.status === 'rejected' && call.receiver._id === userData?._id));
+
+  const getStatusIcon = (call: any) => {
+    const isCaller = call.caller._id === userData?._id;
+    
+    if (call.status === 'completed') {
+      return isCaller 
+        ? <MaterialCommunityIcons name="call-made" size={16} color={Colors.primary} />
+        : <MaterialCommunityIcons name="call-received" size={16} color="#4CAF50" />;
+    } else if (call.status === 'missed' || call.status === 'rejected') {
+      return <MaterialCommunityIcons name="call-missed" size={16} color="#F44336" />;
+    }
+    return <MaterialCommunityIcons name="call-merge" size={16} color={Colors.textSecondary} />;
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    
+    if (date.toDateString() === now.toDateString()) {
+      return `Today, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+      return `Yesterday, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    
+    return date.toLocaleDateString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const renderCallItem = ({ item }: { item: any }) => {
+    const isCaller = item.caller._id === userData?._id;
+    const otherUser = isCaller ? item.receiver : item.caller;
+    
+    return (
+      <View style={styles.callItem}>
+        <Image 
+          source={{ uri: otherUser.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+          style={styles.avatar} 
         />
-      </TouchableOpacity>
-    </View>
-  );
+        <View style={styles.callInfo}>
+          <Text 
+            style={[
+              styles.name, 
+              (item.status === 'missed' && !isCaller) && { color: '#F44336' }
+            ]}
+          >
+            {otherUser.name || otherUser.number}
+          </Text>
+          <View style={styles.statusRow}>
+            {getStatusIcon(item)}
+            <Text style={styles.time}>{formatTime(item.startedAt)}</Text>
+            {item.duration > 0 && <Text style={styles.duration}>({Math.floor(item.duration / 60)}m {item.duration % 60}s)</Text>}
+          </View>
+        </View>
+        <TouchableOpacity 
+          style={styles.callAction}
+          onPress={() => initiateCall(otherUser._id, otherUser.name, otherUser.profilePic, item.type)}
+        >
+          <Ionicons 
+            name={item.type === 'video' ? 'videocam' : 'call'} 
+            size={24} 
+            color={Colors.primary} 
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       
-      {/* Sub-header for All/Missed filter */}
       <View style={styles.tabContainer}>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'all' && styles.activeTab]}
@@ -116,9 +150,12 @@ const CallsScreen: React.FC = () => {
 
       <FlatList
         data={filteredCalls}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         renderItem={renderCallItem}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="call-outline" size={60} color={Colors.gray} />
@@ -127,7 +164,6 @@ const CallsScreen: React.FC = () => {
         }
       />
 
-      {/* Floating Action Button */}
       <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
         <MaterialCommunityIcons name="phone-plus" size={24} color={Colors.white} />
       </TouchableOpacity>
@@ -139,6 +175,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -200,6 +240,12 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 13,
     marginLeft: 6,
+  },
+  duration: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    marginLeft: 5,
+    fontStyle: 'italic',
   },
   callAction: {
     padding: 10,

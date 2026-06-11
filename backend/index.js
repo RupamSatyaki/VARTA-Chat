@@ -32,6 +32,7 @@ console.log('⌛ Loading Models...');
 require('./models/User');
 require('./models/Message');
 require('./models/Chat');
+require('./models/Call');
 console.log('✔ All models successfully loaded');
 
 // 6. Middleware Setup
@@ -57,6 +58,10 @@ console.log('   - Route initialized: /api/messages (Messaging System)');
 // Register Chat Routes
 app.use('/api/chats', require('./routes/chatRoutes'));
 console.log('   - Route initialized: /api/chats (Chat System)');
+
+// Register Call Routes
+app.use('/api/calls', require('./routes/callRoutes'));
+console.log('   - Route initialized: /api/calls (Call History)');
 
 console.log('✔ All API routes successfully initialized');
 

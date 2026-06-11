@@ -12,6 +12,7 @@ interface CallContextType {
   callAccepted: boolean;
   callerInfo: any;
   callType: 'video' | 'audio';
+  currentCallId: string | null;
   initiateCall: (targetUserId: string, targetUserName: string, targetUserPic: string, type: 'video' | 'audio') => void;
   answerCall: () => void;
   rejectCall: () => void;
@@ -45,6 +46,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [callAccepted, setCallAccepted] = useState(false);
   const [callerInfo, setCallerInfo] = useState<any>(null);
   const [callType, setCallType] = useState<'video' | 'audio'>('video');
+  const [currentCallId, setCurrentCallId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isRemoteMuted, setIsRemoteMuted] = useState(false);
@@ -111,6 +113,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsReceivingCall(false);
     setCallAccepted(false);
     setCallerInfo(null);
+    setCurrentCallId(null);
     targetUserIdRef.current = null;
     setIsMuted(false);
     setIsCameraOff(false);
@@ -261,7 +264,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       socket.emit('answer-call', {
         to: callerInfo.from,
-        signalData: answer
+        signalData: answer,
+        callId: currentCallId
       });
 
       // Notify caller about our initial media state (muted/cam-off)
@@ -278,7 +282,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const rejectCall = () => {
     if (socket && callerInfo) {
-      socket.emit('reject-call', { to: callerInfo.from });
+      socket.emit('reject-call', { to: callerInfo.from, callId: currentCallId });
     }
     cleanup();
   };
@@ -286,7 +290,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const endCall = () => {
     const targetId = targetUserIdRef.current || (callerInfo && callerInfo.from);
     if (socket && targetId) {
-      socket.emit('end-call', { to: targetId });
+      socket.emit('end-call', { to: targetId, callId: currentCallId });
     }
     cleanup();
   };
@@ -337,6 +341,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Incoming call from:', data.fromName);
       setCallType(data.type);
       setCallerInfo(data);
+      setCurrentCallId(data.callId);
       setIsReceivingCall(true);
     });
 
@@ -407,6 +412,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       callAccepted,
       callerInfo,
       callType,
+      currentCallId,
       initiateCall,
       answerCall,
       rejectCall,
@@ -417,7 +423,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMuted,
       isCameraOff,
       isRemoteMuted,
-      isRemoteCameraOff
+      isRemoteCameraOff,
+      renderTrigger
     }}>
       {children}
     </CallContext.Provider>
