@@ -7,7 +7,8 @@ import {
   ActivityIndicator, 
   StatusBar,
   Image,
-  FlatList
+  FlatList,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -46,6 +47,7 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   const { socket } = useSocket();
   const { userData, logout } = useAuthStore();
@@ -76,8 +78,14 @@ const HomeScreen: React.FC = () => {
       console.error('Fetch chats error:', error);
     } finally {
       if (showLoading) setLoading(false);
+      setRefreshing(false);
     }
   }, [setChats]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchChats(false);
+  }, [fetchChats]);
 
   useEffect(() => {
     if (isFocused && userData) {
@@ -255,6 +263,14 @@ const HomeScreen: React.FC = () => {
           renderItem={renderChatItem}
           contentContainerStyle={styles.listContent}
           style={{ flex: 1, height: '100%' }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors.primary}
+              colors={[Colors.primary]}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="chatbubbles-outline" size={60} color={Colors.gray} />
