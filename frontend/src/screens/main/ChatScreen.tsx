@@ -305,32 +305,77 @@ const MessageItem = React.memo(({
                   />
                 </View>
               ) : item.type === 'call' && item.callMeta ? (() => {
-                const missed = item.callMeta.status === 'missed' || item.callMeta.status === 'rejected';
-                const statusColor = missed ? '#FF6B6B' : '#4ade80';
-                const iconName = item.callMeta.callType === 'video' ? 'videocam' : 'call';
-                const callLabel = item.callMeta.callType === 'video' ? 'Video Call' : 'Voice Call';
+                const { status, callType, duration } = item.callMeta;
+                const missed  = status === 'missed';
+                const rejected = status === 'rejected';
+                const completed = status === 'completed';
+
+                // Status-specific colors
+                const statusColor = completed ? '#4ade80' : rejected ? '#f97316' : '#FF6B6B';
+                const bgColor = completed
+                  ? 'rgba(74,222,128,0.12)'
+                  : rejected
+                  ? 'rgba(249,115,22,0.12)'
+                  : 'rgba(255,107,107,0.12)';
+
+                // Main icon in circle — call type + direction
+                const mainIcon: any = callType === 'video'
+                  ? completed
+                    ? 'videocam'
+                    : rejected
+                    ? 'videocam-off'
+                    : 'videocam-off'
+                  : completed
+                    ? 'call'
+                    : rejected
+                    ? 'call'
+                    : 'call';
+
+                // Small badge icon on top-right of circle
+                const badgeIcon: any = completed
+                  ? (isMe ? 'arrow-up-circle' : 'arrow-down-circle')
+                  : rejected
+                  ? 'close-circle'
+                  : 'alert-circle';
+
+                const callLabel = callType === 'video' ? 'Video Call' : 'Voice Call';
+
                 const formatDuration = (s: number) => {
                   if (s <= 0) return null;
                   const m = Math.floor(s / 60);
                   const sec = s % 60;
                   return m > 0 ? `${m} min ${sec > 0 ? `${sec} sec` : ''}` : `${sec} sec`;
                 };
-                const statusLabel = item.callMeta.status === 'completed'
-                  ? formatDuration(item.callMeta.duration) ?? 'Connected'
-                  : item.callMeta.status === 'rejected' ? 'Declined' : 'Missed';
+
+                const statusLabel = completed
+                  ? formatDuration(duration) ?? 'Connected'
+                  : rejected
+                  ? 'Declined'
+                  : 'Missed';
+
+                const directionLabel = isMe
+                  ? completed ? 'Outgoing' : 'Cancelled'
+                  : completed ? 'Incoming' : missed ? 'Missed' : 'Declined';
 
                 return (
                   <TouchableOpacity activeOpacity={0.85} onPress={() => onCallBubblePress(item)} style={styles.callCard}>
                     {/* Icon circle + call info */}
                     <View style={styles.callCardTop}>
-                      <View style={[styles.callIconCircle, { backgroundColor: missed ? 'rgba(255,107,107,0.15)' : 'rgba(74,222,128,0.15)' }]}>
-                        <Ionicons name={iconName} size={22} color={statusColor} />
+                      <View style={styles.callIconWrapper}>
+                        <View style={[styles.callIconCircle, { backgroundColor: bgColor }]}>
+                          <Ionicons name={mainIcon} size={22} color={statusColor} />
+                        </View>
+                        {/* Badge */}
+                        <View style={[styles.callIconBadge, { backgroundColor: Colors.background }]}>
+                          <Ionicons name={badgeIcon} size={14} color={statusColor} />
+                        </View>
                       </View>
                       <View style={styles.callCardInfo}>
                         <Text style={styles.callCardLabel}>{callLabel}</Text>
+                        <Text style={styles.callCardDirection}>{directionLabel}</Text>
                         <View style={styles.callCardStatusRow}>
                           <Ionicons
-                            name={missed ? 'arrow-down' : (isMe ? 'arrow-up' : 'arrow-down')}
+                            name={completed ? 'time-outline' : 'close-outline'}
                             size={11}
                             color={statusColor}
                           />
@@ -346,9 +391,9 @@ const MessageItem = React.memo(({
 
                     {/* Call back row */}
                     <View style={styles.callCardFooter}>
-                      <Ionicons name={iconName} size={14} color={Colors.primary} />
+                      <Ionicons name={callType === 'video' ? 'videocam' : 'call'} size={14} color={Colors.primary} />
                       <Text style={styles.callBackText}>
-                        {item.callMeta.callType === 'video' ? 'Video call back' : 'Call back'}
+                        {callType === 'video' ? 'Video call back' : 'Call back'}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -1329,6 +1374,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     gap: 12,
   },
+  callIconWrapper: {
+    position: 'relative',
+    width: 44,
+    height: 44,
+  },
   callIconCircle: {
     width: 44,
     height: 44,
@@ -1336,19 +1386,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  callIconBadge: {
+    position: 'absolute',
+    bottom: -3,
+    right: -3,
+    borderRadius: 9,
+    padding: 1,
+  },
   callCardInfo: {
     flex: 1,
-    gap: 3,
+    gap: 2,
   },
   callCardLabel: {
     color: Colors.white,
     fontSize: 14,
     fontWeight: '700',
   },
+  callCardDirection: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 11,
+  },
   callCardStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginTop: 1,
   },
   callCardStatus: {
     fontSize: 12,
