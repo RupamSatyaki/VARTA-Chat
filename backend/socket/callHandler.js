@@ -22,6 +22,9 @@ module.exports = (io, socket) => {
       // Store callId in socket for future reference during this session
       socket.currentCallId = newCall._id;
 
+      // Notify both users that call history has a new entry
+      io.to(to).to(from).emit('call-log-updated');
+
       socket.to(to).emit('incoming-call', {
         from,
         signalData,
@@ -42,6 +45,8 @@ module.exports = (io, socket) => {
     if (callId) {
       try {
         await Call.findByIdAndUpdate(callId, { startedAt: new Date() });
+        // No need to emit update here as it's still ongoing, 
+        // but could be done if we wanted to show "Connected" status in list
       } catch (error) {
         console.error('Error updating call start time:', error);
       }
@@ -56,10 +61,14 @@ module.exports = (io, socket) => {
     
     if (callId) {
       try {
-        await Call.findByIdAndUpdate(callId, { 
+        const updatedCall = await Call.findByIdAndUpdate(callId, { 
           status: 'rejected',
           endedAt: new Date()
-        });
+        }, { new: true });
+        
+        if (updatedCall) {
+          io.to(updatedCall.caller.toString()).to(updatedCall.receiver.toString()).emit('call-log-updated');
+        }
       } catch (error) {
         console.error('Error updating call rejection:', error);
       }
@@ -86,11 +95,15 @@ module.exports = (io, socket) => {
           const endedAt = new Date();
           const calculatedDuration = duration || Math.floor((endedAt - call.startedAt) / 1000);
           
-          await Call.findByIdAndUpdate(id, {
+          const updatedCall = await Call.findByIdAndUpdate(id, {
             status: 'completed',
             endedAt: endedAt,
             duration: calculatedDuration > 0 ? calculatedDuration : 0
-          });
+          }, { new: true });
+
+          if (updatedCall) {
+            io.to(updatedCall.caller.toString()).to(updatedCall.receiver.toString()).emit('call-log-updated');
+          }
         }
       } catch (error) {
         console.error('Error ending call log:', error);

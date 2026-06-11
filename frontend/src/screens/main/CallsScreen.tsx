@@ -14,11 +14,13 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../theme/colors';
 import { useCall } from '../../context/CallContext';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useSocket } from '../../context/SocketContext';
 import apiClient from '../../api/apiClient';
 
 const CallsScreen: React.FC = () => {
   const { initiateCall } = useCall();
   const { userData } = useAuthStore();
+  const { socket } = useSocket();
   const [activeTab, setActiveTab] = useState<'all' | 'missed'>('all');
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,19 @@ const CallsScreen: React.FC = () => {
     fetchCallHistory();
   }, [fetchCallHistory]);
 
+  useEffect(() => {
+    if (socket) {
+      socket.on('call-log-updated', () => {
+        console.log('📡 Call log updated, fetching fresh data...');
+        fetchCallHistory(false);
+      });
+
+      return () => {
+        socket.off('call-log-updated');
+      };
+    }
+  }, [socket, fetchCallHistory]);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchCallHistory(false);
@@ -53,7 +68,7 @@ const CallsScreen: React.FC = () => {
     : calls.filter(call => call.status === 'missed' || (call.status === 'rejected' && call.receiver._id === userData?._id));
 
   const getStatusIcon = (call: any) => {
-    const isCaller = call.caller._id === userData?._id;
+    const isCaller = call.caller?._id === userData?._id;
     
     if (call.status === 'completed') {
       return isCaller 
@@ -83,13 +98,18 @@ const CallsScreen: React.FC = () => {
   };
 
   const renderCallItem = ({ item }: { item: any }) => {
-    const isCaller = item.caller._id === userData?._id;
+    const isCaller = item.caller?._id === userData?._id;
     const otherUser = isCaller ? item.receiver : item.caller;
     
+    // Fallback info if user data is missing (e.g. user deleted)
+    const displayName = otherUser?.name || otherUser?.number || 'Unknown User';
+    const displayPic = otherUser?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+    const otherUserId = otherUser?._id;
+
     return (
       <View style={styles.callItem}>
         <Image 
-          source={{ uri: otherUser.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+          source={{ uri: displayPic }} 
           style={styles.avatar} 
         />
         <View style={styles.callInfo}>
@@ -99,7 +119,7 @@ const CallsScreen: React.FC = () => {
               (item.status === 'missed' && !isCaller) && { color: '#F44336' }
             ]}
           >
-            {otherUser.name || otherUser.number}
+            {displayName}
           </Text>
           <View style={styles.statusRow}>
             {getStatusIcon(item)}
@@ -109,12 +129,13 @@ const CallsScreen: React.FC = () => {
         </View>
         <TouchableOpacity 
           style={styles.callAction}
-          onPress={() => initiateCall(otherUser._id, otherUser.name, otherUser.profilePic, item.type)}
+          onPress={() => otherUserId && initiateCall(otherUserId, displayName, displayPic, item.type)}
+          disabled={!otherUserId}
         >
           <Ionicons 
             name={item.type === 'video' ? 'videocam' : 'call'} 
             size={24} 
-            color={Colors.primary} 
+            color={otherUserId ? Colors.primary : Colors.gray} 
           />
         </TouchableOpacity>
       </View>
