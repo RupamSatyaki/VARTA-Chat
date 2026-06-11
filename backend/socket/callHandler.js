@@ -58,17 +58,22 @@ const saveCallMessage = async (callId) => {
 
     await Chat.findByIdAndUpdate(chatId, { latestMessage: msg._id });
 
-    // Emit to the chat room
-    io.to(chatId.toString()).emit('message-received', {
-      _id: msg._id,
-      chatId: chatId,
-      content: label,
-      type: 'call',
-      senderId: call.caller,
-      status: 'sent',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      callMeta: msg.callMeta,
-    });
+    // Broadcast to all participants individually to ensure live update everywhere
+    const chatData = await Chat.findById(chatId).select('users');
+    if (chatData) {
+      chatData.users.forEach(userId => {
+        io.to(userId.toString()).emit('message-received', {
+          _id: msg._id,
+          chatId: chatId,
+          content: label,
+          type: 'call',
+          senderId: call.caller,
+          status: 'sent',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          callMeta: msg.callMeta,
+        });
+      });
+    }
   } catch (err) {
     console.error('Error saving call message:', err.message);
   }
