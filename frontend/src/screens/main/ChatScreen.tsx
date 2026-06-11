@@ -455,6 +455,7 @@ const ChatScreen: React.FC = () => {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [callbackTarget, setCallbackTarget] = useState<Message | null>(null);
+  const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
@@ -527,6 +528,15 @@ const ChatScreen: React.FC = () => {
           isDeleted: m.isDeleted,
           callMeta: m.callMeta,
         }));
+        
+        // Find first unread message before updating store
+        const firstUnread = formattedMessages.find((m: Message) => 
+          m.senderId !== userData?._id && m.status !== 'seen'
+        );
+        if (firstUnread) {
+          setFirstUnreadId(firstUnread.id);
+        }
+
         setMessages(chat._id, formattedMessages);
         
         // Mark these messages as seen in the backend
@@ -892,20 +902,32 @@ const ChatScreen: React.FC = () => {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === userData?._id;
+    const isFirstUnread = item.id === firstUnreadId;
     
     return (
-      <MessageItem
-        item={item}
-        isMe={isMe}
-        chat={chat}
-        userData={userData}
-        handleReply={handleReply}
-        selectedMessages={selectedMessages}
-        setSelectedMessages={setSelectedMessages}
-        handleReaction={handleReaction}
-        REACTIONS={REACTIONS}
-        onCallBubblePress={setCallbackTarget}
-      />
+      <>
+        {isFirstUnread && (
+          <View style={styles.unreadDivider}>
+            <View style={styles.unreadDividerLine} />
+            <View style={styles.unreadDividerContent}>
+              <Text style={styles.unreadDividerText}>UNREAD MESSAGES</Text>
+            </View>
+            <View style={styles.unreadDividerLine} />
+          </View>
+        )}
+        <MessageItem
+          item={item}
+          isMe={isMe}
+          chat={chat}
+          userData={userData}
+          handleReply={handleReply}
+          selectedMessages={selectedMessages}
+          setSelectedMessages={setSelectedMessages}
+          handleReaction={handleReaction}
+          REACTIONS={REACTIONS}
+          onCallBubblePress={setCallbackTarget}
+        />
+      </<>
     );
   };
 
@@ -1745,6 +1767,33 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+  },
+  unreadDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 20,
+    paddingHorizontal: 20,
+  },
+  unreadDividerLine: {
+    flex: 1,
+    height: 0.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  unreadDividerContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginHorizontal: 10,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  unreadDividerText: {
+    color: Colors.textSecondary,
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });
 
