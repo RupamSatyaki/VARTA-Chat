@@ -74,10 +74,23 @@ const CallsScreen: React.FC = () => {
       return isCaller 
         ? <MaterialCommunityIcons name="call-made" size={16} color={Colors.primary} />
         : <MaterialCommunityIcons name="call-received" size={16} color="#4CAF50" />;
-    } else if (call.status === 'missed' || call.status === 'rejected') {
-      return <MaterialCommunityIcons name="call-missed" size={16} color="#F44336" />;
+    } else if (call.status === 'missed') {
+      return <MaterialCommunityIcons name="call-missed" size={18} color="#F44336" />;
+    } else if (call.status === 'rejected') {
+      return <MaterialCommunityIcons name="phone-cancel" size={16} color="#FF9800" />;
+    } else if (call.status === 'ongoing') {
+      return <MaterialCommunityIcons name="phone-in-talk" size={16} color="#2196F3" />;
     }
     return <MaterialCommunityIcons name="call-merge" size={16} color={Colors.textSecondary} />;
+  };
+
+  const getStatusText = (call: any) => {
+    const isCaller = call.caller?._id === userData?._id;
+    if (call.status === 'completed') return isCaller ? 'Outgoing' : 'Incoming';
+    if (call.status === 'missed') return 'Missed';
+    if (call.status === 'rejected') return 'Declined';
+    if (call.status === 'ongoing') return 'Ongoing';
+    return call.status;
   };
 
   const formatTime = (dateString: string) => {
@@ -101,43 +114,59 @@ const CallsScreen: React.FC = () => {
     const isCaller = item.caller?._id === userData?._id;
     const otherUser = isCaller ? item.receiver : item.caller;
     
-    // Fallback info if user data is missing (e.g. user deleted)
+    // Fallback info if user data is missing
     const displayName = otherUser?.name || otherUser?.number || 'Unknown User';
     const displayPic = otherUser?.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
     const otherUserId = otherUser?._id;
 
+    const isMissed = item.status === 'missed' && !isCaller;
+    const isRejected = item.status === 'rejected';
+
     return (
       <View style={styles.callItem}>
-        <Image 
-          source={{ uri: displayPic }} 
-          style={styles.avatar} 
-        />
+        <View style={styles.avatarContainer}>
+          <Image source={{ uri: displayPic }} style={styles.avatar} />
+          <View style={[styles.typeIndicator, { backgroundColor: item.type === 'video' ? Colors.primary : '#4CAF50' }]}>
+            <Ionicons name={item.type === 'video' ? 'videocam' : 'call'} size={10} color={Colors.white} />
+          </View>
+        </View>
+        
         <View style={styles.callInfo}>
           <Text 
             style={[
               styles.name, 
-              (item.status === 'missed' && !isCaller) && { color: '#F44336' }
+              isMissed && { color: '#F44336' }
             ]}
+            numberOfLines={1}
           >
             {displayName}
           </Text>
           <View style={styles.statusRow}>
             {getStatusIcon(item)}
-            <Text style={styles.time}>{formatTime(item.startedAt)}</Text>
-            {item.duration > 0 && <Text style={styles.duration}>({Math.floor(item.duration / 60)}m {item.duration % 60}s)</Text>}
+            <Text style={[styles.statusText, isMissed && { color: '#F44336' }]}>
+              {getStatusText(item)} • {formatTime(item.startedAt)}
+            </Text>
           </View>
         </View>
-        <TouchableOpacity 
-          style={styles.callAction}
-          onPress={() => otherUserId && initiateCall(otherUserId, displayName, displayPic, item.type)}
-          disabled={!otherUserId}
-        >
-          <Ionicons 
-            name={item.type === 'video' ? 'videocam' : 'call'} 
-            size={24} 
-            color={otherUserId ? Colors.primary : Colors.gray} 
-          />
-        </TouchableOpacity>
+
+        <View style={styles.rightActions}>
+          {item.duration > 0 && (
+            <Text style={styles.duration}>
+              {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, '0')}
+            </Text>
+          )}
+          <TouchableOpacity 
+            style={styles.callAction}
+            onPress={() => otherUserId && initiateCall(otherUserId, displayName, displayPic, item.type)}
+            disabled={!otherUserId}
+          >
+            <Ionicons 
+              name={item.type === 'video' ? 'videocam-outline' : 'call-outline'} 
+              size={24} 
+              color={otherUserId ? Colors.primary : Colors.gray} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -243,6 +272,21 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     backgroundColor: Colors.lightGray,
   },
+  avatarContainer: {
+    position: 'relative',
+  },
+  typeIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   callInfo: {
     flex: 1,
     marginLeft: 15,
@@ -251,11 +295,20 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  statusText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    marginLeft: 6,
+  },
+  rightActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   time: {
     color: Colors.textSecondary,
@@ -265,7 +318,7 @@ const styles = StyleSheet.create({
   duration: {
     color: Colors.textSecondary,
     fontSize: 12,
-    marginLeft: 5,
+    marginBottom: 4,
     fontStyle: 'italic',
   },
   callAction: {
