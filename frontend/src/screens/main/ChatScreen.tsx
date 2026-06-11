@@ -1111,13 +1111,13 @@ const ChatScreen: React.FC = () => {
 
             <TouchableOpacity 
               style={styles.btn} 
-              onPress={() => initiateCall(user._id, user.name || user.number, user.profilePic, 'video')}
+              onPress={() => initiateCall(user._id, chat.isGroupChat ? chat.chatName : (user.name || user.number), chat.isGroupChat ? 'https://cdn-icons-png.flaticon.com/512/615/615075.png' : user.profilePic, 'video', chat._id)}
             >
               <Ionicons name="videocam" size={22} color={Colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.btn} 
-              onPress={() => initiateCall(user._id, user.name || user.number, user.profilePic, 'audio')}
+              onPress={() => initiateCall(user._id, chat.isGroupChat ? chat.chatName : (user.name || user.number), chat.isGroupChat ? 'https://cdn-icons-png.flaticon.com/512/615/615075.png' : user.profilePic, 'audio', chat._id)}
             >
               <Ionicons name="call" size={20} color={Colors.primary} />
             </TouchableOpacity>

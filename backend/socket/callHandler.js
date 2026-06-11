@@ -54,33 +54,53 @@ module.exports = (ioInstance, socket) => {
   io = ioInstance;
   
   // Initiate a call
-  const callUser = async ({ to, from, signalData, fromName, fromPic, type }) => {
-    console.log(`📞 Calling user ${to} from ${from} (${fromName})`);
+  const callUser = async ({ to, from, signalData, fromName, fromPic, type, chatId }) => {
+    console.log(`📞 Calling ${chatId ? 'group ' + chatId : 'user ' + to} from ${from} (${fromName})`);
     
     try {
-      // Create a new call record
+      // 1. Determine recipients
+      let recipients = [];
+      if (chatId) {
+        const chat = await Chat.findById(chatId).populate('users', '_id');
+        if (chat && chat.isGroupChat) {
+          recipients = chat.users
+            .map(u => u._id.toString())
+            .filter(id => id !== from.toString());
+        } else {
+          recipients = [to];
+        }
+      } else {
+        recipients = [to];
+      }
+
+      // 2. Create call records (one for each recipient or a single one with group ref)
+      // For now, let's create a single record for the first recipient or a placeholder
       const newCall = await Call.create({
         caller: from,
-        receiver: to,
+        receiver: recipients[0] || to, // Simple fallback
         type: type || 'video',
         status: 'ongoing',
         startedAt: new Date()
       });
       
-      // Store callId in socket for future reference during this session
       socket.currentCallId = newCall._id;
 
-      // Notify both users that call history has a new entry
-      io.to(to).to(from).emit('call-log-updated');
-
-      socket.to(to).emit('incoming-call', {
-        from,
-        signalData,
-        fromName,
-        fromPic,
-        type: type || 'video',
-        callId: newCall._id // Send callId to receiver
+      // 3. Notify recipients
+      recipients.forEach(targetId => {
+        io.to(targetId).emit('incoming-call', {
+          from,
+          signalData,
+          fromName,
+          fromPic,
+          type: type || 'video',
+          callId: newCall._id,
+          chatId: chatId // Pass chatId so receiver knows it's a group call
+        });
       });
+
+      // Notify caller room (for history update)
+      io.to(from).emit('call-log-updated');
+      
     } catch (error) {
       console.error('Error creating call log:', error);
     }

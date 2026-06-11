@@ -13,7 +13,7 @@ interface CallContextType {
   callerInfo: any;
   callType: 'video' | 'audio';
   currentCallId: string | null;
-  initiateCall: (targetUserId: string, targetUserName: string, targetUserPic: string, type: 'video' | 'audio') => void;
+  initiateCall: (targetUserId: string, targetUserName: string, targetUserPic: string, type: 'video' | 'audio', chatId?: string) => void;
   answerCall: () => void;
   rejectCall: () => void;
   endCall: () => void;
@@ -161,7 +161,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return pc;
   }, [socket]);
 
-  const initiateCall = async (targetUserId: string, targetUserName: string, targetUserPic: string, type: 'video' | 'audio' = 'video') => {
+  const initiateCall = async (targetUserId: string, targetUserName: string, targetUserPic: string, type: 'video' | 'audio' = 'video', chatId?: string) => {
     try {
       setCallType(type);
       setIsCalling(true);
@@ -195,7 +195,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           signalData: offer,
           fromName: userData.name,
           fromPic: userData.profilePic,
-          type
+          type,
+          chatId: chatId // Group call support
         });
 
         // Also emit our current media state
