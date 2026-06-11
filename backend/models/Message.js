@@ -43,8 +43,14 @@ const messageSchema = new mongoose.Schema({
   },
   readBy: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      readAt: { type: Date, default: Date.now }
+    },
+  ],
+  deliveredTo: [
+    {
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      deliveredAt: { type: Date, default: Date.now }
     },
   ],
   replyTo: {
