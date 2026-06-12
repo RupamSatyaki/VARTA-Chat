@@ -60,7 +60,10 @@ interface Message {
     callType: 'audio' | 'video';
     status: 'completed' | 'missed' | 'rejected';
     duration: number;
+    participants?: { user: string; name: string; status: string }[];
   };
+  readBy?: { user: string; name: string; seenAt: string }[];
+  deliveredTo?: { user: string; name: string; deliveredAt: string }[];
 }
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -466,7 +469,7 @@ const ChatScreen: React.FC = () => {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
-  const [messageInfo, setMessageInfo] = useState<Message | null>(null);
+  const [messageInfoId, setMessageInfoId] = useState<string | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [callbackTarget, setCallbackTarget] = useState<Message | null>(null);
@@ -498,6 +501,8 @@ const ChatScreen: React.FC = () => {
 
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const messageInfo = chatMessages.find(m => m.id === messageInfoId) || null;
 
   const getStatusText = () => {
     if (isOtherUserTyping) return 'typing...';
@@ -773,15 +778,15 @@ const ChatScreen: React.FC = () => {
         });
       });
 
-      socket.on('message-status-updated', ({ messageId, chatId, status }: any) => {
+      socket.on('message-status-updated', ({ messageId, chatId, status, deliveredAt, receiverId, receiverName }: any) => {
         if (chatId === chat._id) {
-          updateMessageStatus(chatId, messageId, status);
+          updateMessageStatus(chatId, messageId, status, deliveredAt, receiverId, receiverName);
         }
       });
 
-      socket.on('messages-seen', ({ chatId, receiverId }: any) => {
+      socket.on('messages-seen', ({ chatId, receiverId, name, seenAt }: any) => {
         if (chatId === chat._id) {
-          markMessagesAsSeen(chatId, userData?._id || '');
+          syncChatSeen(chatId, receiverId, userData?._id || '', name, seenAt);
         }
       });
 
@@ -1078,7 +1083,7 @@ const ChatScreen: React.FC = () => {
                         <TouchableOpacity 
                           style={styles.menuItem} 
                           onPress={() => { 
-                            setMessageInfo(selectedMsg);
+                            setMessageInfoId(selectedMsg.id);
                             setShowHeaderMenu(false);
                             setSelectedMessages([]);
                           }}
@@ -1312,85 +1317,85 @@ const ChatScreen: React.FC = () => {
         </Pressable>
       </Modal>
 
-      {/* Message Info Modal */}
+      {/* Message Info Bottom Sheet */}
       <Modal
-        visible={!!messageInfo}
+        visible={!!messageInfoId}
         transparent
-        animationType="fade"
-        onRequestClose={() => setMessageInfo(null)}
+        animationType="slide"
+        onRequestClose={() => setMessageInfoId(null)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setMessageInfo(null)}>
-          <Animated.View entering={FadeInDown.duration(300)} style={styles.infoModalContainer}>
-            <View style={styles.infoModalHeader}>
-              <Text style={styles.infoModalTitle}>Message Info</Text>
-              <TouchableOpacity onPress={() => setMessageInfo(null)}>
-                <Ionicons name="close" size={24} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setMessageInfoId(null)}>
+          <Animated.View entering={FadeInDown.duration(300)} style={[styles.sheetContainer, { paddingBottom: 20 }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Message Info</Text>
 
             {messageInfo && (
-              <View style={styles.infoModalContent}>
+              <View style={{ gap: 20 }}>
+                {/* Message Preview at Top */}
                 <View style={[
                   styles.infoMessagePreview,
-                  messageInfo.senderId === userData?._id ? styles.myBubble : styles.otherBubble
+                  messageInfo.senderId === userData?._id ? styles.myBubble : styles.otherBubble,
+                  { marginBottom: 10 }
                 ]}>
                   <Text style={styles.messageText}>{messageInfo.content}</Text>
                   <Text style={styles.timestamp}>{messageInfo.timestamp}</Text>
                 </View>
 
-                <View style={styles.infoList}>
-                  <View style={styles.infoItem}>
-                    <Ionicons name="checkmark" size={20} color={Colors.textSecondary} />
-                    <View style={styles.infoItemText}>
-                      <Text style={styles.infoItemLabel}>Sent</Text>
-                      <Text style={styles.infoItemValue}>{new Date(messageInfo.fullDate).toLocaleString()}</Text>
-                    </View>
+                {/* Read By Section */}
+                <View style={styles.statusSection}>
+                  <View style={styles.statusSectionHeader}>
+                    <Ionicons name="checkmark-done" size={20} color="#34B7F1" />
+                    <Text style={styles.statusSectionTitle}>Seen by</Text>
                   </View>
-
-                  {!chat.isGroupChat && (
-                    <>
-                      <View style={styles.infoItem}>
-                        <Ionicons 
-                          name="checkmark-done" 
-                          size={20} 
-                          color={messageInfo.status === 'delivered' || messageInfo.status === 'seen' ? '#4ade80' : Colors.textSecondary} 
-                        />
-                        <View style={styles.infoItemText}>
-                          <Text style={styles.infoItemLabel}>Delivered</Text>
-                          <Text style={styles.infoItemValue}>
-                            {messageInfo.status === 'delivered' || messageInfo.status === 'seen' ? 'Delivered' : 'Pending'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.infoItem}>
-                        <Ionicons 
-                          name="checkmark-done" 
-                          size={20} 
-                          color={messageInfo.status === 'seen' ? '#34B7F1' : Colors.textSecondary} 
-                        />
-                        <View style={styles.infoItemText}>
-                          <Text style={styles.infoItemLabel}>Read</Text>
-                          <Text style={styles.infoItemValue}>
-                            {messageInfo.status === 'seen' ? 'Read' : 'Not read yet'}
-                          </Text>
-                        </View>
-                      </View>
-                    </>
-                  )}
-                  
-                  {chat.isGroupChat && (
-                    <View style={styles.infoItem}>
-                      <Ionicons name="people" size={20} color={Colors.primary} />
-                      <View style={styles.infoItemText}>
-                        <Text style={styles.infoItemLabel}>Read by</Text>
-                        <Text style={styles.infoItemValue}>
-                          {messageInfo.readBy?.length || 0} members
-                        </Text>
-                      </View>
-                    </View>
-                  )}
+                  <View style={styles.userList}>
+                    {messageInfo.readBy && messageInfo.readBy.length > 0 ? (
+                      messageInfo.readBy.map((u: any, i) => {
+                        const userName = u.name || (u.user && typeof u.user === 'object' ? u.user.name : 'User');
+                        const seenTime = u.seenAt || u.readAt;
+                        return (
+                          <View key={i} style={styles.userListItem}>
+                            <Text style={styles.userListName}>{userName}</Text>
+                            <Text style={styles.userListTime}>
+                              {seenTime ? new Date(seenTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                            </Text>
+                          </View>
+                        );
+                      })
+                    ) : (
+                      <Text style={styles.noStatusText}>No one has seen it yet</Text>
+                    )}
+                  </View>
                 </View>
+
+                {/* Delivered To Section */}
+                <View style={styles.statusSection}>
+                  <View style={styles.statusSectionHeader}>
+                    <Ionicons name="checkmark-done" size={20} color={Colors.textSecondary} />
+                    <Text style={styles.statusSectionTitle}>Delivered to</Text>
+                  </View>
+                  <View style={styles.userList}>
+                    {messageInfo.deliveredTo && messageInfo.deliveredTo.length > 0 ? (
+                      messageInfo.deliveredTo.map((u: any, i) => {
+                        const userName = u.name || (u.user && typeof u.user === 'object' ? u.user.name : 'User');
+                        const deliveredTime = u.deliveredAt;
+                        return (
+                          <View key={i} style={styles.userListItem}>
+                            <Text style={styles.userListName}>{userName}</Text>
+                            <Text style={styles.userListTime}>
+                              {deliveredTime ? new Date(deliveredTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                            </Text>
+                          </View>
+                        );
+                      })
+                    ) : (
+                      <Text style={styles.noStatusText}>Pending delivery...</Text>
+                    )}
+                  </View>
+                </View>
+
+                <TouchableOpacity style={styles.sheetCancel} onPress={() => setMessageInfoId(null)}>
+                  <Text style={styles.sheetCancelText}>Close</Text>
+                </TouchableOpacity>
               </View>
             )}
           </Animated.View>
@@ -2022,34 +2027,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  infoModalContainer: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    width: '100%',
-    maxWidth: 400,
-    overflow: 'hidden',
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-  },
-  infoModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  infoModalTitle: {
-    color: Colors.text,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  infoModalContent: {
-    padding: 20,
-  },
   infoMessagePreview: {
     padding: 12,
     borderRadius: 15,
@@ -2057,26 +2034,47 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     minWidth: '60%',
   },
-  infoList: {
-    gap: 20,
+  statusSection: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 15,
+    padding: 15,
   },
-  infoItem: {
+  statusSectionHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 15,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    paddingBottom: 8,
   },
-  infoItemText: {
-    flex: 1,
-  },
-  infoItemLabel: {
+  statusSectionTitle: {
     color: Colors.text,
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
-  infoItemValue: {
+  userList: {
+    gap: 10,
+  },
+  userListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  userListName: {
+    color: Colors.text,
+    fontSize: 14,
+  },
+  userListTime: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  noStatusText: {
     color: Colors.textSecondary,
     fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 5,
   },
 });
 

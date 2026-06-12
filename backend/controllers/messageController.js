@@ -97,6 +97,8 @@ const getChatMessages = async (req, res) => {
         select: "content sender",
         populate: { path: "sender", select: "name" }
       })
+      .populate("readBy.user", "name profilePic")
+      .populate("deliveredTo.user", "name profilePic")
       .sort({ createdAt: -1 }) // Get latest messages first for pagination
       .limit(parseInt(limit));
 

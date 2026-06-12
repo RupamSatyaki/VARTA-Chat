@@ -192,23 +192,31 @@ module.exports = (io, socket) => {
       const receiverId = socket.userId;
       if (!receiverId) return;
 
+      // Fetch the receiver's name
+      const receiver = await User.findById(receiverId).select('name');
+      const receiverName = receiver ? receiver.name : 'Unknown';
+
       // Update global status and add to detailed deliveredTo array
       const message = await Message.findOneAndUpdate(
         { _id: messageId, 'deliveredTo.user': { $ne: receiverId } },
         { 
           status: 'delivered', 
           deliveredAt: Date.now(),
-          $push: { deliveredTo: { user: receiverId, deliveredAt: Date.now() } } 
+          $push: { deliveredTo: { user: receiverId, name: receiverName, deliveredAt: Date.now() } } 
         },
         { new: true }
       );
 
       if (message) {
         // Notify the sender that the message was delivered
+        const deliveredAt = Date.now();
         socket.in(senderId).emit('message-status-updated', {
           messageId,
           chatId: message.chat,
-          status: 'delivered'
+          status: 'delivered',
+          deliveredAt,
+          receiverId,
+          receiverName
         });
         console.log(`✔ Message ${messageId} marked as delivered to ${receiverId}`);
       }
@@ -223,7 +231,11 @@ module.exports = (io, socket) => {
       const viewerId = receiverId || socket.userId;
       if (!viewerId) return;
 
-      // 1. Add the viewer to the readBy array for all messages they haven't read yet
+      // 1. Fetch the viewer's name
+      const viewer = await User.findById(viewerId).select('name');
+      const viewerName = viewer ? viewer.name : 'Unknown';
+
+      // 2. Add the viewer to the readBy array for all messages they haven't read yet
       await Message.updateMany(
         { 
           chat: chatId, 
@@ -231,28 +243,33 @@ module.exports = (io, socket) => {
           'readBy.user': { $ne: viewerId } 
         },
         { 
-          $push: { readBy: { user: viewerId, readAt: Date.now() } } 
+          $push: { readBy: { user: viewerId, name: viewerName, seenAt: Date.now() } } 
         }
       );
 
-      // 2. For 1-on-1 chats, we still update the global status to 'seen' for UI ticks
+      // 3. For 1-on-1 chats, we still update the global status to 'seen' for UI ticks
       if (senderId && viewerId) {
+        const seenAt = Date.now();
         await Message.updateMany(
           { chat: chatId, sender: senderId, receiver: viewerId, status: { $ne: 'seen' } },
-          { status: 'seen', seenAt: Date.now() }
+          { status: 'seen', seenAt }
         );
 
         // Notify the sender that their messages were read (to update ticks to blue)
         socket.in(senderId).emit('messages-seen', {
           chatId,
           senderId,
-          receiverId: viewerId
+          receiverId: viewerId,
+          seenAt
         });
       } else {
         // For group chats, we broadcast to the room that someone read messages
+        const seenAt = Date.now();
         socket.to(chatId).emit('messages-seen', {
           chatId,
-          receiverId: viewerId
+          receiverId: viewerId,
+          name: viewerName,
+          seenAt
         });
       }
 

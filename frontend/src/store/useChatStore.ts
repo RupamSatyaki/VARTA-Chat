@@ -25,8 +25,8 @@ interface Message {
   };
   isEdited?: boolean;
   isDeleted?: boolean;
-  readBy?: { user: string; readAt: string }[];
-  deliveredTo?: { user: string; deliveredAt: string }[];
+  readBy?: { user: string; name: string; seenAt: string }[];
+  deliveredTo?: { user: string; name: string; deliveredAt: string }[];
 }
 
 interface Chat {
@@ -161,12 +161,26 @@ export const useChatStore = create<ChatState>((set) => ({
       };
     }),
 
-  updateMessageStatus: (chatId, messageId, status) =>
+  updateMessageStatus: (chatId: string, messageId: string, status: 'sent' | 'delivered' | 'seen', deliveredAt?: string, receiverId?: string, receiverName?: string) =>
     set((state) => {
       const chatMessages = state.messages[chatId] || [];
-      const updatedMessages = chatMessages.map((m) =>
-        m.id === messageId ? { ...m, status } : m
-      );
+      const updatedMessages = chatMessages.map((m) => {
+        if (m.id === messageId) {
+          const updates: Partial<Message> = { status };
+          if (status === 'delivered' && receiverId && receiverName) {
+            const alreadyDelivered = m.deliveredTo?.some(d => d.user === receiverId);
+            if (!alreadyDelivered) {
+              updates.deliveredTo = [...(m.deliveredTo || []), { 
+                user: receiverId, 
+                name: receiverName, 
+                deliveredAt: deliveredAt || new Date().toISOString() 
+              }];
+            }
+          }
+          return { ...m, ...updates };
+        }
+        return m;
+      });
       return {
         messages: { ...state.messages, [chatId]: updatedMessages }
       };
@@ -193,7 +207,7 @@ export const useChatStore = create<ChatState>((set) => ({
           return { 
             ...m, 
             status: 'seen' as const,
-            readBy: [...(m.readBy || []), { user: currentUserId, readAt: new Date().toISOString() }]
+            readBy: [...(m.readBy || []), { user: currentUserId, name: 'You', seenAt: new Date().toISOString() }]
           };
         }
         return m;
@@ -248,7 +262,7 @@ export const useChatStore = create<ChatState>((set) => ({
       })
     })),
 
-  syncChatSeen: (chatId, viewerId, currentUserId) =>
+  syncChatSeen: (chatId: string, viewerId: string, currentUserId: string, name?: string, seenAt?: string) =>
     set((state) => {
       const isMeViewer = viewerId === currentUserId;
       
@@ -277,7 +291,11 @@ export const useChatStore = create<ChatState>((set) => ({
           return {
             ...m,
             status: m.senderId === currentUserId ? 'seen' as const : m.status,
-            readBy: [...(m.readBy || []), { user: viewerId, readAt: new Date().toISOString() }]
+            readBy: [...(m.readBy || []), { 
+              user: viewerId, 
+              name: name || (isMeViewer ? 'You' : 'User'), 
+              seenAt: seenAt || new Date().toISOString() 
+            }]
           };
         }
         return m;
