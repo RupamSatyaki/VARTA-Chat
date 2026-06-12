@@ -46,7 +46,7 @@ interface Message {
     content: string;
     sender: { _id: string; name: string };
   };
-  reactions?: { user: string; emoji: string }[];
+  reactions?: { user: any; emoji: string }[];
   linkPreview?: {
     title?: string;
     description?: string;
@@ -136,6 +136,7 @@ const MessageItem = React.memo(({
   handleReaction,
   REACTIONS,
   onCallBubblePress,
+  onReactionPress,
 }: { 
   item: Message; 
   isMe: boolean; 
@@ -147,6 +148,7 @@ const MessageItem = React.memo(({
   handleReaction: (msgId: string, emoji: string) => void;
   REACTIONS: string[];
   onCallBubblePress: (msg: Message) => void;
+  onReactionPress?: (msg: Message) => void;
 }) => {
   const swipeableRef = useRef<Swipeable>(null);
   const isSelected = selectedMessages.includes(item.id);
@@ -418,17 +420,20 @@ const MessageItem = React.memo(({
               </View>
 
               {item.reactions && item.reactions.length > 0 && !item.isDeleted && (
-                <View style={[
-                  styles.messageReactions,
-                  isMe ? { right: 6 } : { left: 6 }
-                ]}>
+                <TouchableOpacity 
+                  onPress={() => onReactionPress?.(item)}
+                  style={[
+                    styles.messageReactions,
+                    isMe ? { right: 6 } : { left: 6 }
+                  ]}
+                >
                   {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
                     <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
                   ))}
                   {item.reactions.length > 1 && (
                     <Text style={styles.reactionCount}>{item.reactions.length}</Text>
                   )}
-                </View>
+                </TouchableOpacity>
               )}
             </View>
           </TouchableOpacity>
@@ -475,6 +480,7 @@ const ChatScreen: React.FC = () => {
   const [inputLinkPreview, setInputLinkPreview] = useState<any | null>(null);
   const [isLinkPreviewDismissed, setIsLinkPreviewDismissed] = useState(false);
   const [lastDetectedUrl, setLastDetectedUrl] = useState<string | null>(null);
+  const [reactionSummaryMessage, setReactionSummaryMessage] = useState<Message | null>(null);
   const [callbackTarget, setCallbackTarget] = useState<Message | null>(null);
   const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -1050,6 +1056,7 @@ const ChatScreen: React.FC = () => {
           handleReaction={handleReaction}
           REACTIONS={REACTIONS}
           onCallBubblePress={setCallbackTarget}
+          onReactionPress={setReactionSummaryMessage}
         />
         {isFirstUnread && (
           <View style={styles.unreadDivider}>
@@ -1459,6 +1466,42 @@ const ChatScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             )}
+          </Animated.View>
+        </Pressable>
+      </Modal>
+
+      {/* Reactions Summary Bottom Sheet */}
+      <Modal
+        visible={!!reactionSummaryMessage}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReactionSummaryMessage(null)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setReactionSummaryMessage(null)}>
+          <Animated.View entering={FadeInDown.duration(300)} style={[styles.sheetContainer, { paddingBottom: 20 }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Reactions</Text>
+
+            <View style={styles.reactionSummaryList}>
+              {reactionSummaryMessage?.reactions?.map((r: any, i: number) => {
+                const userName = typeof r.user === 'object' ? r.user.name : 'User';
+                const profilePic = typeof r.user === 'object' ? r.user.profilePic : null;
+                return (
+                  <View key={i} style={styles.reactionSummaryItem}>
+                    <Image 
+                      source={{ uri: profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+                      style={styles.reactionUserAvatar} 
+                    />
+                    <Text style={styles.reactionUserName}>{userName}</Text>
+                    <Text style={styles.reactionSummaryEmoji}>{r.emoji}</Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity style={styles.sheetCancel} onPress={() => setReactionSummaryMessage(null)}>
+              <Text style={styles.sheetCancelText}>Close</Text>
+            </TouchableOpacity>
           </Animated.View>
         </Pressable>
       </Modal>
@@ -2170,6 +2213,31 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 5,
+  },
+  reactionSummaryList: {
+    gap: 15,
+  },
+  reactionSummaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 12,
+    borderRadius: 15,
+    gap: 12,
+  },
+  reactionUserAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  reactionUserName: {
+    flex: 1,
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  reactionSummaryEmoji: {
+    fontSize: 20,
   },
 });
 

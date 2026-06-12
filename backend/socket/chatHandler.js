@@ -177,12 +177,16 @@ module.exports = (io, socket) => {
 
       await message.save();
 
+      // Populate user info for reactions before broadcasting
+      const populatedMessage = await Message.findById(messageId).populate("reactions.user", "name profilePic");
+      const reactions = populatedMessage ? populatedMessage.reactions : message.reactions;
+
       // Broadcast to all users in the chat
       const chat = await Chat.findById(chatId).populate("users", "_id");
       chat.users.forEach(user => {
         socket.in(user._id.toString()).emit('message-reacted', {
           messageId,
-          reactions: message.reactions,
+          reactions: reactions,
           chatId
         });
       });
@@ -190,7 +194,7 @@ module.exports = (io, socket) => {
       // Also emit back to the sender so their UI updates live
       socket.emit('message-reacted', {
         messageId,
-        reactions: message.reactions,
+        reactions: reactions,
         chatId
       });
 
