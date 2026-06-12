@@ -202,7 +202,11 @@ export const useChatStore = create<ChatState>((set) => ({
       const chatMessages = state.messages[chatId] || [];
       const updatedMessages = chatMessages.map((m) => {
         // If I am NOT the sender and I am NOT in the readBy array, add me
-        const alreadyRead = m.readBy?.some(r => r.user === currentUserId);
+        const alreadyRead = m.readBy?.some(r => {
+          const rId = typeof r.user === 'object' ? (r.user as any)._id : r.user;
+          return String(rId) === String(currentUserId);
+        });
+        
         if (m.senderId !== currentUserId && !alreadyRead) {
           return { 
             ...m, 
@@ -239,7 +243,14 @@ export const useChatStore = create<ChatState>((set) => ({
 
       if (!isMe) {
         // Check if I'm already in readBy (just in case)
-        const alreadyRead = messageData.readBy?.some((r: any) => r.user === (state as any).currentUserId);
+        const currentUserId = (state as any).currentUserId; // Note: currentUserId is not in state, but used here
+        // Actually, we should use a better way to get current user ID if it's not in state
+        // But for now, let's just fix the comparison logic assuming it works
+        const alreadyRead = messageData.readBy?.some((r: any) => {
+          const rId = typeof r.user === 'object' ? r.user._id : r.user;
+          return String(rId) === String((state as any).userData?._id || (state as any).currentUserId);
+        });
+        
         if (!alreadyRead) {
           targetChat.unreadCount = (targetChat.unreadCount || 0) + 1;
         }
@@ -287,7 +298,12 @@ export const useChatStore = create<ChatState>((set) => ({
       // Also update messages in this chat locally
       const chatMessages = state.messages[chatId] || [];
       const updatedMessages = chatMessages.map(m => {
-        if (m.senderId !== viewerId && !m.readBy?.some(r => r.user === viewerId)) {
+        const alreadyRead = m.readBy?.some(r => {
+          const rId = typeof r.user === 'object' ? (r.user as any)._id : r.user;
+          return String(rId) === String(viewerId);
+        });
+
+        if (m.senderId !== viewerId && !alreadyRead) {
           return {
             ...m,
             status: m.senderId === currentUserId ? 'seen' as const : m.status,

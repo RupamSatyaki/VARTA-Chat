@@ -575,9 +575,16 @@ const ChatScreen: React.FC = () => {
         } else {
           // Initial load: Find first unread message
           // A message is unread if I am NOT in the readBy array
-          const firstUnread = [...formattedMessages].reverse().find((m: Message) => 
-            m.senderId !== userData?._id && !m.readBy?.some(r => r.user === userData?._id)
-          );
+          const firstUnread = [...formattedMessages].reverse().find((m: Message) => {
+            if (String(m.senderId) === String(userData?._id)) return false;
+            
+            const isReadByMe = m.readBy?.some(r => {
+              const rId = typeof r.user === 'object' ? (r.user as any)._id : r.user;
+              return String(rId) === String(userData?._id);
+            });
+            
+            return !isReadByMe;
+          });
           if (firstUnread) {
             setFirstUnreadId(firstUnread.id);
           }
