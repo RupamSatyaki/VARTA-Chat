@@ -162,14 +162,21 @@ module.exports = (io, socket) => {
       const message = await Message.findById(messageId);
       if (!message) return;
 
-      // Check if user already reacted with this emoji
+      // Check if user has ANY existing reaction
       const existingReactionIndex = message.reactions.findIndex(
-        (r) => r.user.toString() === userId.toString() && r.emoji === emoji
+        (r) => r.user.toString() === userId.toString()
       );
 
       if (existingReactionIndex > -1) {
-        // Remove reaction if it already exists (Toggle behavior)
+        const oldEmoji = message.reactions[existingReactionIndex].emoji;
+        // Remove existing reaction
         message.reactions.splice(existingReactionIndex, 1);
+        
+        // If it was a DIFFERENT emoji, add the new one (Switch behavior)
+        // If it was the SAME emoji, just leave it removed (Toggle off behavior)
+        if (oldEmoji !== emoji) {
+          message.reactions.push({ user: userId, emoji });
+        }
       } else {
         // Add new reaction
         message.reactions.push({ user: userId, emoji });

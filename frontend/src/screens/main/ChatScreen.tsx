@@ -427,9 +427,21 @@ const MessageItem = React.memo(({
                     isMe ? { right: 6 } : { left: 6 }
                   ]}
                 >
-                  {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => (
-                    <Text key={idx} style={styles.appliedReaction}>{emoji}</Text>
-                  ))}
+                  {Array.from(new Set(item.reactions.map(r => r.emoji))).map((emoji, idx) => {
+                    const isMyReaction = item.reactions?.some(r => {
+                      const rId = typeof r.user === 'object' ? r.user._id : r.user;
+                      return String(rId) === String(userData?._id) && r.emoji === emoji;
+                    });
+                    
+                    return (
+                      <View key={idx} style={[
+                        styles.appliedReactionContainer,
+                        isMyReaction && styles.myReactionHighlight
+                      ]}>
+                        <Text style={styles.appliedReaction}>{emoji}</Text>
+                      </View>
+                    );
+                  })}
                   {item.reactions.length > 1 && (
                     <Text style={styles.reactionCount}>{item.reactions.length}</Text>
                   )}
@@ -447,15 +459,25 @@ const MessageItem = React.memo(({
               isMe ? { right: 15 } : { left: 15 }
             ]}
           >
-            {REACTIONS.map((emoji) => (
-              <TouchableOpacity 
-                key={emoji} 
-                onPress={() => handleReaction(item.id, emoji)}
-                style={styles.reactionTouch}
-              >
-                <Text style={styles.reactionEmoji}>{emoji}</Text>
-              </TouchableOpacity>
-            ))}
+            {REACTIONS.map((emoji) => {
+              const isSelectedReaction = item.reactions?.some(r => {
+                const rId = typeof r.user === 'object' ? r.user._id : r.user;
+                return String(rId) === String(userData?._id) && r.emoji === emoji;
+              });
+
+              return (
+                <TouchableOpacity 
+                  key={emoji} 
+                  onPress={() => handleReaction(item.id, emoji)}
+                  style={[
+                    styles.reactionTouch,
+                    isSelectedReaction && styles.reactionTouchActive
+                  ]}
+                >
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </Animated.View>
         )}
       </View>
@@ -1830,7 +1852,16 @@ const styles = StyleSheet.create({
   },
   appliedReaction: {
     fontSize: 12,
-    marginRight: 2,
+  },
+  appliedReactionContainer: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  myReactionHighlight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    // Note: React Native doesn't have a direct blur filter for small elements like this,
+    // so we use a semi-transparent white background to create the highlight effect.
   },
   reactionCount: {
     fontSize: 10,
@@ -1856,6 +1887,10 @@ const styles = StyleSheet.create({
   reactionTouch: {
     paddingHorizontal: 8,
     paddingVertical: 2,
+    borderRadius: 15,
+  },
+  reactionTouchActive: {
+    backgroundColor: 'rgba(52, 183, 241, 0.2)',
   },
   reactionEmoji: {
     fontSize: 26,
