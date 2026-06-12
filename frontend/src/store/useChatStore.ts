@@ -50,12 +50,12 @@ interface ChatState {
   addMessage: (chatId: string, message: Message) => void;
   updateMessage: (chatId: string, messageId: string, updates: Partial<Message>) => void;
   updateMessageId: (chatId: string, tempId: string, realId: string, newData?: Partial<Message>) => void;
-  updateMessageStatus: (chatId: string, messageId: string, status: 'sent' | 'delivered' | 'seen') => void;
+  updateMessageStatus: (chatId: string, messageId: string, status: 'sent' | 'delivered' | 'seen', deliveredAt?: string, receiverId?: string, receiverName?: string) => void;
   updateMessageReactions: (chatId: string, messageId: string, reactions: { user: string; emoji: string }[]) => void;
   markMessagesAsSeen: (chatId: string, senderId: string) => void;
   updateChatFromMessage: (messageData: any, isMe: boolean) => void;
   updateChatStatus: (chatId: string, messageId: string, status: string) => void;
-  syncChatSeen: (chatId: string, receiverId: string, currentUserId: string) => void;
+  syncChatSeen: (chatId: string, receiverId: string, currentUserId: string, name?: string, seenAt?: string) => void;
   setTyping: (chatId: string, isTyping: boolean) => void;
   setOnlineUsers: (users: string[]) => void;
   updateUserStatus: (userId: string, status: 'online' | 'offline', lastSeen?: string) => void;

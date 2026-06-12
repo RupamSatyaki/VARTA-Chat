@@ -492,7 +492,8 @@ const ChatScreen: React.FC = () => {
     typingStatus,
     setTyping,
     userStatuses,
-    updateMessage
+    updateMessage,
+    syncChatSeen
   } = useChatStore();
   
   const chatMessages = messages[chat._id] || [];
