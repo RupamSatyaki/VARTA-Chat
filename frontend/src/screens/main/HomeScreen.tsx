@@ -58,7 +58,8 @@ const HomeScreen: React.FC = () => {
     updateChatStatus, 
     syncChatSeen,
     typingStatus,
-    setTyping
+    setTyping,
+    populateUserStatuses
   } = useChatStore();
 
   const isMe = useCallback((sender: any) => {
@@ -73,6 +74,7 @@ const HomeScreen: React.FC = () => {
       const response = await apiClient.get('/chats');
       if (response.data) {
         setChats(response.data);
+        populateUserStatuses(response.data);
       }
     } catch (error: any) {
       console.error('Fetch chats error:', error);

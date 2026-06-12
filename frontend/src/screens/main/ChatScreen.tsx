@@ -505,10 +505,12 @@ const ChatScreen: React.FC = () => {
 
   const messageInfo = chatMessages.find(m => m.id === messageInfoId) || null;
 
+  const isOnline = otherUserStatus ? (otherUserStatus.status === 'online') : user.isOnline;
+
   const getStatusText = () => {
     if (isOtherUserTyping) return 'typing...';
     
-    if (otherUserStatus?.status === 'online') return 'Online';
+    if (isOnline) return 'Online';
     
     if (otherUserStatus?.lastSeen || user.lastSeen) {
       const lastSeen = otherUserStatus?.lastSeen || user.lastSeen;
@@ -1144,7 +1146,7 @@ const ChatScreen: React.FC = () => {
                 <Text style={styles.name} numberOfLines={1}>{chat.isGroupChat ? chat.chatName : (user.name || user.number)}</Text>
                 <Text style={[
                   styles.status, 
-                  (isOtherUserTyping || (otherUserStatus?.status === 'online')) && { color: Colors.primary, fontWeight: 'bold' }
+                  (isOtherUserTyping || isOnline) && { color: Colors.primary, fontWeight: 'bold' }
                 ]}>
                   {chat.isGroupChat ? `${chat.users?.length || 0} members` : getStatusText()}
                 </Text>

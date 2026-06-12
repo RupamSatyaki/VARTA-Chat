@@ -60,6 +60,7 @@ interface ChatState {
   setOnlineUsers: (users: string[]) => void;
   updateUserStatus: (userId: string, status: 'online' | 'offline', lastSeen?: string) => void;
   clearChat: (chatId: string) => void;
+  populateUserStatuses: (chats: Chat[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -70,6 +71,23 @@ export const useChatStore = create<ChatState>((set) => ({
   userStatuses: {},
 
   setChats: (chats) => set({ chats }),
+
+  populateUserStatuses: (chats) =>
+    set((state) => {
+      const newStatuses = { ...state.userStatuses };
+      chats.forEach(chat => {
+        chat.users.forEach(user => {
+          // Don't overwrite if we already have a more recent socket status
+          if (!newStatuses[user._id]) {
+            newStatuses[user._id] = { 
+              status: user.isOnline ? 'online' : 'offline',
+              lastSeen: user.lastSeen 
+            };
+          }
+        });
+      });
+      return { userStatuses: newStatuses };
+    }),
   
   setTyping: (chatId, isTyping) =>
     set((state) => ({
