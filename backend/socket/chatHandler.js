@@ -2,6 +2,7 @@ const Message = require('../models/Message');
 const Chat = require('../models/Chat');
 const User = require('../models/User');
 const { getLinkPreview } = require('link-preview-js');
+const axios = require('axios');
 
 /**
  * Chat-related Socket event handlers
@@ -26,8 +27,28 @@ module.exports = (io, socket) => {
   // Helper to fetch link preview
   const fetchLinkPreviewData = async (url) => {
     try {
+      // 1. Specialized handling for YouTube (including Shorts) via oEmbed
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        try {
+          const oEmbedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+          const response = await axios.get(oEmbedUrl, { timeout: 4000 });
+          if (response.data) {
+            return {
+              title: response.data.title,
+              description: response.data.author_name ? `By ${response.data.author_name}` : 'YouTube Video',
+              image: response.data.thumbnail_url,
+              url: url,
+              siteName: 'YouTube',
+            };
+          }
+        } catch (ytError) {
+          console.log(`ℹ YouTube oEmbed fallback for ${url}: ${ytError.message}`);
+        }
+      }
+
+      // 2. Standard scraper for other sites
       const data = await getLinkPreview(url, {
-        timeout: 3000,
+        timeout: 5000, // Increased timeout for better reliability
         headers: {
           "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
         },
