@@ -472,6 +472,9 @@ const ChatScreen: React.FC = () => {
   const [messageInfoId, setMessageInfoId] = useState<string | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [inputLinkPreview, setInputLinkPreview] = useState<any | null>(null);
+  const [isLinkPreviewDismissed, setIsLinkPreviewDismissed] = useState(false);
+  const [lastDetectedUrl, setLastDetectedUrl] = useState<string | null>(null);
   const [callbackTarget, setCallbackTarget] = useState<Message | null>(null);
   const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -886,9 +889,33 @@ const ChatScreen: React.FC = () => {
     );
   };
 
-  const handleTextChange = (text: string) => {
+  const handleTextChange = async (text: string) => {
     setMessage(text);
     if (!socket || !isConnected) return;
+
+    // Detect URL for preview
+    const urlRegex = /https?:\/\/[^\s]+/g;
+    const matches = text.match(urlRegex);
+    const url = matches ? matches[0] : null;
+
+    if (url && url !== lastDetectedUrl) {
+      setLastDetectedUrl(url);
+      setIsLinkPreviewDismissed(false); // Reset dismiss if URL changes
+      
+      try {
+        const response = await apiClient.get('/messages/link-preview', { params: { url } });
+        if (response.data.success) {
+          setInputLinkPreview(response.data.data);
+        }
+      } catch (err) {
+        console.log('Link preview fetch failed:', (err as any).message);
+        setInputLinkPreview(null);
+      }
+    } else if (!url) {
+      setLastDetectedUrl(null);
+      setInputLinkPreview(null);
+      setIsLinkPreviewDismissed(false);
+    }
 
     socket.emit('typing', { 
       chatId: chat._id, 
@@ -955,18 +982,24 @@ const ChatScreen: React.FC = () => {
         _id: replyingTo.id,
         content: replyingTo.content,
         sender: { name: replyingTo.senderName || 'User' }
-      } : null
+      } : null,
+      // If preview is NOT dismissed, let backend handle it, or we could pass it here
+      // For now, if dismissed, we might need a way to tell the backend NOT to preview
     };
 
     socket.emit('new-message', { 
       ...newMessage, 
       chatId: chat._id,
-      replyTo: replyingTo?.id 
+      replyTo: replyingTo?.id,
+      noPreview: isLinkPreviewDismissed // New flag
     });
 
     addMessage(chat._id, newMessage);
     setMessage('');
     setReplyingTo(null);
+    setInputLinkPreview(null);
+    setIsLinkPreviewDismissed(false);
+    setLastDetectedUrl(null);
   };
 
   const formatDateDivider = (dateString: string) => {
@@ -1237,6 +1270,24 @@ const ChatScreen: React.FC = () => {
               </TouchableOpacity>
             </Animated.View>
           )}
+
+          {inputLinkPreview && !isLinkPreviewDismissed && (
+            <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.inputLinkPreview}>
+              <View style={styles.linkPreviewContent}>
+                {inputLinkPreview.image && (
+                  <Image source={{ uri: inputLinkPreview.image }} style={styles.inputLinkImage} />
+                )}
+                <View style={styles.inputLinkText}>
+                  <Text style={styles.inputLinkTitle} numberOfLines={1}>{inputLinkPreview.title}</Text>
+                  <Text style={styles.inputLinkDesc} numberOfLines={1}>{inputLinkPreview.description}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setIsLinkPreviewDismissed(true)} style={styles.closePreview}>
+                <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
           <View style={styles.footer}>
             <View style={styles.inputBox}>
               <TouchableOpacity style={styles.btn}><Ionicons name="happy-outline" size={24} color={Colors.textSecondary} /></TouchableOpacity>
@@ -1842,6 +1893,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   closeReply: {
+    padding: 5,
+  },
+  inputLinkPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  inputLinkImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  inputLinkText: {
+    flex: 1,
+  },
+  inputLinkTitle: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  inputLinkDesc: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+  },
+  closePreview: {
     padding: 5,
   },
   footer: {

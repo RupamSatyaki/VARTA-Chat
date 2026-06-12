@@ -71,7 +71,7 @@ module.exports = (io, socket) => {
 
   // Handle new message
   const newMessage = async (newMessageReceived) => {
-    const { senderId, content, type, chatId, replyTo } = newMessageReceived;
+    const { senderId, content, type, chatId, replyTo, noPreview } = newMessageReceived;
 
     if (!senderId || !content || !chatId) {
       return console.log('❌ Invalid message data received');
@@ -85,7 +85,7 @@ module.exports = (io, socket) => {
       // Check for link preview
       let linkPreviewData = null;
       const url = extractUrl(content);
-      if (url && (type === 'text' || !type)) {
+      if (url && (type === 'text' || !type) && !noPreview) {
         linkPreviewData = await fetchLinkPreviewData(url);
       }
 

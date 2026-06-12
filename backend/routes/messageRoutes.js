@@ -9,6 +9,11 @@ const { upload } = require('../config/cloudinary');
 // @access  Private
 router.get('/media/:chatId', authMiddleware, messageController.getChatMedia);
 
+// @route   GET /api/messages/link-preview
+// @desc    Get link preview data
+// @access  Private
+router.get('/link-preview', authMiddleware, messageController.getLinkPreviewData);
+
 // @route   GET /api/messages/:chatId
 // @desc    Get all messages for a specific chat
 // @access  Private

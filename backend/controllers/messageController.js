@@ -247,10 +247,38 @@ const uploadImage = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get link preview data
+ * @route   GET /api/messages/link-preview?url=...
+ * @access  Private
+ */
+const getLinkPreviewData = async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) {
+      return res.status(400).json({ success: false, message: 'URL is required' });
+    }
+
+    const preview = await fetchLinkPreviewData(url);
+    if (!preview) {
+      return res.status(404).json({ success: false, message: 'Could not fetch preview' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: preview
+    });
+  } catch (error) {
+    console.error(`❌ Error in getLinkPreviewData: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
 module.exports = {
   sendMessage,
   getMessages,
   getChatMessages,
   getChatMedia,
-  uploadImage
+  uploadImage,
+  getLinkPreviewData
 };
