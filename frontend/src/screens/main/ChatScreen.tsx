@@ -466,6 +466,7 @@ const ChatScreen: React.FC = () => {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [messageInfo, setMessageInfo] = useState<Message | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [callbackTarget, setCallbackTarget] = useState<Message | null>(null);
@@ -1071,32 +1072,42 @@ const ChatScreen: React.FC = () => {
                 <View style={styles.headerMenu}>
                   {selectedMessages.length === 1 && (() => {
                     const selectedMsg = getFirstSelectedMessage();
-                    if (selectedMsg && String(selectedMsg.senderId) === String(userData?._id) && !selectedMsg.isDeleted) {
-                      return (
-                        <>
-                          <TouchableOpacity 
-                            style={styles.menuItem} 
-                            onPress={() => { handleEdit(selectedMsg); setShowHeaderMenu(false); }}
-                          >
-                            <Ionicons name="pencil" size={18} color={Colors.text} />
-                            <Text style={styles.menuText}>Edit</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={styles.menuItem} 
-                            onPress={() => { handleDelete(selectedMsg.id); setShowHeaderMenu(false); }}
-                          >
-                            <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-                            <Text style={[styles.menuText, { color: '#FF3B30' }]}>Delete</Text>
-                          </TouchableOpacity>
-                        </>
-                      );
-                    }
-                    return null;
+                    if (!selectedMsg) return null;
+                    return (
+                      <>
+                        <TouchableOpacity 
+                          style={styles.menuItem} 
+                          onPress={() => { 
+                            setMessageInfo(selectedMsg);
+                            setShowHeaderMenu(false);
+                            setSelectedMessages([]);
+                          }}
+                        >
+                          <Ionicons name="information-circle-outline" size={18} color={Colors.text} />
+                          <Text style={styles.menuText}>Info</Text>
+                        </TouchableOpacity>
+
+                        {String(selectedMsg.senderId) === String(userData?._id) && !selectedMsg.isDeleted && (
+                          <>
+                            <TouchableOpacity 
+                              style={styles.menuItem} 
+                              onPress={() => { handleEdit(selectedMsg); setShowHeaderMenu(false); }}
+                            >
+                              <Ionicons name="pencil" size={18} color={Colors.text} />
+                              <Text style={styles.menuText}>Edit</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                              style={styles.menuItem} 
+                              onPress={() => { handleDelete(selectedMsg.id); setShowHeaderMenu(false); }}
+                            >
+                              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                              <Text style={[styles.menuText, { color: '#FF3B30' }]}>Delete</Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
+                      </>
+                    );
                   })()}
-                  <TouchableOpacity style={styles.menuItem} onPress={() => { setSelectedMessages([]); setShowHeaderMenu(false); }}>
-                    <Ionicons name="information-circle-outline" size={18} color={Colors.text} />
-                    <Text style={styles.menuText}>Info</Text>
-                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -1297,6 +1308,91 @@ const ChatScreen: React.FC = () => {
             <TouchableOpacity style={styles.sheetCancel} onPress={() => setCallbackTarget(null)}>
               <Text style={styles.sheetCancelText}>Cancel</Text>
             </TouchableOpacity>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+
+      {/* Message Info Modal */}
+      <Modal
+        visible={!!messageInfo}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMessageInfo(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setMessageInfo(null)}>
+          <Animated.View entering={FadeInDown.duration(300)} style={styles.infoModalContainer}>
+            <View style={styles.infoModalHeader}>
+              <Text style={styles.infoModalTitle}>Message Info</Text>
+              <TouchableOpacity onPress={() => setMessageInfo(null)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {messageInfo && (
+              <View style={styles.infoModalContent}>
+                <View style={[
+                  styles.infoMessagePreview,
+                  messageInfo.senderId === userData?._id ? styles.myBubble : styles.otherBubble
+                ]}>
+                  <Text style={styles.messageText}>{messageInfo.content}</Text>
+                  <Text style={styles.timestamp}>{messageInfo.timestamp}</Text>
+                </View>
+
+                <View style={styles.infoList}>
+                  <View style={styles.infoItem}>
+                    <Ionicons name="checkmark" size={20} color={Colors.textSecondary} />
+                    <View style={styles.infoItemText}>
+                      <Text style={styles.infoItemLabel}>Sent</Text>
+                      <Text style={styles.infoItemValue}>{new Date(messageInfo.fullDate).toLocaleString()}</Text>
+                    </View>
+                  </View>
+
+                  {!chat.isGroupChat && (
+                    <>
+                      <View style={styles.infoItem}>
+                        <Ionicons 
+                          name="checkmark-done" 
+                          size={20} 
+                          color={messageInfo.status === 'delivered' || messageInfo.status === 'seen' ? '#4ade80' : Colors.textSecondary} 
+                        />
+                        <View style={styles.infoItemText}>
+                          <Text style={styles.infoItemLabel}>Delivered</Text>
+                          <Text style={styles.infoItemValue}>
+                            {messageInfo.status === 'delivered' || messageInfo.status === 'seen' ? 'Delivered' : 'Pending'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.infoItem}>
+                        <Ionicons 
+                          name="checkmark-done" 
+                          size={20} 
+                          color={messageInfo.status === 'seen' ? '#34B7F1' : Colors.textSecondary} 
+                        />
+                        <View style={styles.infoItemText}>
+                          <Text style={styles.infoItemLabel}>Read</Text>
+                          <Text style={styles.infoItemValue}>
+                            {messageInfo.status === 'seen' ? 'Read' : 'Not read yet'}
+                          </Text>
+                        </View>
+                      </View>
+                    </>
+                  )}
+                  
+                  {chat.isGroupChat && (
+                    <View style={styles.infoItem}>
+                      <Ionicons name="people" size={20} color={Colors.primary} />
+                      <View style={styles.infoItemText}>
+                        <Text style={styles.infoItemLabel}>Read by</Text>
+                        <Text style={styles.infoItemValue}>
+                          {messageInfo.readBy?.length || 0} members
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
           </Animated.View>
         </Pressable>
       </Modal>
@@ -1918,6 +2014,69 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  infoModalContainer: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    overflow: 'hidden',
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+  },
+  infoModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  infoModalTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  infoModalContent: {
+    padding: 20,
+  },
+  infoMessagePreview: {
+    padding: 12,
+    borderRadius: 15,
+    marginBottom: 24,
+    alignSelf: 'center',
+    minWidth: '60%',
+  },
+  infoList: {
+    gap: 20,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 15,
+  },
+  infoItemText: {
+    flex: 1,
+  },
+  infoItemLabel: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  infoItemValue: {
+    color: Colors.textSecondary,
+    fontSize: 13,
   },
 });
 
