@@ -86,9 +86,21 @@ module.exports = (ioInstance, socket) => {
   
   // Initiate a call
   const callUser = async ({ to, from, signalData, fromName, fromPic, type, chatId }) => {
-    console.log(`📞 Calling ${chatId ? 'group ' + chatId : 'user ' + to} from ${from} (${fromName})`);
+    console.log(`📞 Calling ${chatId ? 'group ' + chatId : 'user ' + to} from ${from} (${fromName}) - Type: ${type}`);
     
     try {
+      // Ensure we have caller details (fallback to DB if missing from frontend)
+      let finalFromName = fromName;
+      let finalFromPic = fromPic;
+
+      if (!finalFromName || finalFromName === 'Unknown User') {
+        const caller = await User.findById(from).select('name username number profilePic');
+        if (caller) {
+          finalFromName = caller.name || caller.username || caller.number || 'User';
+          finalFromPic = caller.profilePic;
+        }
+      }
+
       // 1. Determine recipients
       let recipients = [];
       if (chatId) {
@@ -111,7 +123,7 @@ module.exports = (ioInstance, socket) => {
 
       const newCall = await Call.create({
         caller: from,
-        receiver: chatId ? null : recipients[0]?._id, // Backward compatibility
+        receiver: chatId ? null : (recipients[0]?._id || to), // Backward compatibility
         participants: participantList,
         chat: chatId || null,
         isGroupCall: !!chatId,
@@ -124,11 +136,13 @@ module.exports = (ioInstance, socket) => {
 
       // 3. Notify recipients
       recipients.forEach(r => {
+        if (!r._id) return;
+        
         io.to(r._id.toString()).emit('incoming-call', {
           from,
           signalData,
-          fromName,
-          fromPic,
+          fromName: finalFromName || 'Unknown User',
+          fromPic: finalFromPic || null,
           type: type || 'video',
           callId: newCall._id,
           chatId: chatId // Pass chatId so receiver knows it's a group call

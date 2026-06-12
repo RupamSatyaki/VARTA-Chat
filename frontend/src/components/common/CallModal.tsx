@@ -6,7 +6,7 @@ import {
   TouchableOpacity, 
   Modal, 
   Image, 
-  Dimensions 
+  Dimensions
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { RTCView } from '../../api/WebRTCAdapter';
@@ -25,6 +25,7 @@ const CallModal: React.FC = () => {
     callerInfo, 
     callType,
     participants,
+    currentCallId,
     answerCall, 
     rejectCall, 
     endCall,
@@ -36,7 +37,17 @@ const CallModal: React.FC = () => {
     isRemoteCameraOff
   } = useCall();
 
-  if (!isCalling && !isReceivingCall && !callAccepted) return null;
+  const isVisible = isCalling || isReceivingCall || callAccepted;
+
+  // Use a unique key for the Modal based on call state to force re-mount
+  // This helps on some devices where the Modal might get stuck
+  const modalKey = `${isVisible}-${currentCallId || 'no-call'}`;
+
+  useEffect(() => {
+    if (isVisible) {
+      console.log('📞 CallModal is now VISIBLE. Type:', callType, 'Receiving:', isReceivingCall);
+    }
+  }, [isVisible, callType, isReceivingCall]);
 
   const showRemoteVideo = callAccepted && remoteStream && callType === 'video' && !isRemoteCameraOff;
 
@@ -73,7 +84,13 @@ const CallModal: React.FC = () => {
   };
 
   return (
-    <Modal visible={true} animationType="slide">
+    <Modal 
+      key={modalKey}
+      visible={isVisible} 
+      animationType="slide"
+      transparent={false}
+      statusBarTranslucent={true}
+    >
       <View style={styles.container}>
         {/* Remote Stream (Full Screen) */}
         {showRemoteVideo ? (

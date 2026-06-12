@@ -196,7 +196,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           to: targetUserId,
           from: userData._id,
           signalData: offer,
-          fromName: userData.name,
+          fromName: userData.name || userData.username || userData.number || 'User',
           fromPic: userData.profilePic,
           type,
           chatId: chatId // Group call support
@@ -351,9 +351,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!socket) return;
 
     socket.on('incoming-call', (data) => {
-      console.log('Incoming call from:', data.fromName);
+      console.log('📡 Incoming call event received:', data.type, 'from:', data.fromName);
       setCallType(data.type);
-      setCallerInfo(data);
+      setCallerInfo({
+        from: data.from,
+        name: data.fromName || 'Unknown User',
+        profilePic: data.fromPic,
+        signalData: data.signalData
+      });
       setCurrentCallId(data.callId);
       setIsReceivingCall(true);
     });
