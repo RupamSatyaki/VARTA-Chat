@@ -1,5 +1,60 @@
 const Message = require('../models/Message');
 const Chat = require('../models/Chat');
+const { getLinkPreview } = require('link-preview-js');
+const axios = require('axios');
+
+// Helper to extract URL from text (Only full URLs)
+const extractUrl = (text) => {
+  const urlRegex = /https?:\/\/[^\s]+/g;
+  const matches = text.match(urlRegex);
+  return matches ? matches[0] : null;
+};
+
+// Helper to fetch link preview
+const fetchLinkPreviewData = async (url) => {
+  try {
+    // 1. Specialized handling for YouTube (including Shorts) via oEmbed
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      try {
+        const oEmbedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+        const response = await axios.get(oEmbedUrl, { timeout: 4000 });
+        if (response.data) {
+          return {
+            title: response.data.title,
+            description: response.data.author_name ? `By ${response.data.author_name}` : 'YouTube Video',
+            image: response.data.thumbnail_url,
+            url: url,
+            siteName: 'YouTube',
+          };
+        }
+      } catch (ytError) {
+        console.log(`ℹ YouTube oEmbed fallback for ${url}: ${ytError.message}`);
+      }
+    }
+
+    // 2. Standard scraper for other sites
+    const data = await getLinkPreview(url, {
+      timeout: 5000,
+      headers: {
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
+      },
+    });
+    
+    if (data && (data.title || data.description)) {
+      return {
+        title: data.title,
+        description: data.description,
+        image: data.images && data.images.length > 0 ? data.images[0] : (data.favicons && data.favicons.length > 0 ? data.favicons[0] : null),
+        url: data.url,
+        siteName: data.siteName,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching link preview:', error.message);
+    return null;
+  }
+};
 
 /**
  * @desc    Send a message
@@ -17,6 +72,13 @@ const sendMessage = async (req, res) => {
       });
     }
 
+    // Check for link preview
+    let linkPreviewData = null;
+    const url = extractUrl(content);
+    if (url && (type === 'text' || !type)) {
+      linkPreviewData = await fetchLinkPreviewData(url);
+    }
+
     const message = await Message.create({
       sender: senderId,
       receiver: receiverId,
@@ -24,6 +86,7 @@ const sendMessage = async (req, res) => {
       type: type || 'text',
       status: 'sent',
       chat: chatId,
+      linkPreview: linkPreviewData
     });
 
     // Update the chat document with the latest message

@@ -11,17 +11,10 @@ module.exports = (io, socket) => {
   
   // Helper to extract URL from text
   const extractUrl = (text) => {
-    // Detects both full URLs (http/https) and naked domains (google.com)
-    const urlRegex = /(https?:\/\/[^\s]+)|(\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b(\/[^\s]*)?)/g;
+    // Only matches full URLs starting with http:// or https://
+    const urlRegex = /https?:\/\/[^\s]+/g;
     const matches = text.match(urlRegex);
-    if (!matches) return null;
-    
-    let url = matches[0];
-    // If it's a naked domain, prefix it with https:// for fetching
-    if (!/^https?:\/\//i.test(url)) {
-      url = 'https://' + url;
-    }
-    return url;
+    return matches ? matches[0] : null;
   };
 
   // Helper to fetch link preview
@@ -333,14 +326,23 @@ module.exports = (io, socket) => {
       // Only the sender can edit their message
       if (message.sender.toString() !== socket.userId.toString()) return;
 
+      // Check for link preview in edited content
+      let linkPreviewData = null;
+      const url = extractUrl(newContent);
+      if (url) {
+        linkPreviewData = await fetchLinkPreviewData(url);
+      }
+
       message.content = newContent;
       message.isEdited = true;
+      message.linkPreview = linkPreviewData;
       await message.save();
 
       io.in(chatId).emit('message-updated', {
         messageId,
         content: newContent,
         isEdited: true,
+        linkPreview: linkPreviewData,
         chatId
       });
       console.log(`✏️ Message ${messageId} edited`);
