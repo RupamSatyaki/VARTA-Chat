@@ -1283,7 +1283,7 @@ const ChatScreen: React.FC = () => {
                 </View>
               </View>
               <TouchableOpacity onPress={() => setIsLinkPreviewDismissed(true)} style={styles.closePreview}>
-                <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+                <Ionicons name="close" size={20} color={Colors.textSecondary} />
               </TouchableOpacity>
             </Animated.View>
           )}
@@ -1902,6 +1902,11 @@ const styles = StyleSheet.create({
     padding: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  linkPreviewContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   inputLinkImage: {
     width: 40,
