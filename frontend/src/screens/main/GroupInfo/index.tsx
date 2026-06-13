@@ -9,14 +9,20 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  Switch
+  Switch,
+  Modal,
+  FlatList,
+  TextInput,
+  Image
 } from 'react-native';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
   useAnimatedScrollHandler,
   interpolate,
-  Extrapolate
+  Extrapolate,
+  FadeInDown,
+  FadeOut
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +35,7 @@ import apiClient from '../../../api/apiClient';
 import { SectionHeader, InfoCard, ActionButton, SettingItem } from './components/InfoComponents';
 import MediaGallery from './components/MediaGallery';
 import MemberList from './components/MemberList';
-import { Chat } from './types';
+import { Chat, User } from './types';
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_MAX_HEIGHT = width * 0.8;
@@ -45,6 +51,12 @@ const GroupInfoScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [mediaCount, setMediaCount] = useState(0);
+
+  // Add Member States
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [fetchingUsers, setFetchingUsers] = useState(false);
 
   const scrollY = useSharedValue(0);
 
@@ -74,12 +86,49 @@ const GroupInfoScreen: React.FC = () => {
     }
   };
 
+  const fetchAllUsers = async () => {
+    try {
+      setFetchingUsers(true);
+      const response = await apiClient.get('/users');
+      if (response.data.success) {
+        // Filter out users already in the group
+        const existingUserIds = chat.users.map(u => u._id);
+        const filtered = response.data.data.filter((u: User) => !existingUserIds.includes(u._id) && u._id !== userData?._id);
+        setAllUsers(filtered);
+      }
+    } catch (error) {
+      console.error('Fetch users error:', error);
+    } finally {
+      setFetchingUsers(false);
+    }
+  };
+
   React.useEffect(() => {
     fetchMediaCount();
   }, [chat._id]);
 
   const adminId = typeof chat.groupAdmin === 'object' ? chat.groupAdmin._id : chat.groupAdmin;
   const isAdmin = adminId === userData?._id;
+
+  const handleAddMember = async (userId: string) => {
+    try {
+      setLoading(true);
+      const response = await apiClient.put('/chats/groupadd', {
+        chatId: chat._id,
+        userId
+      });
+      if (response.data) {
+        setShowAddModal(false);
+        fetchChatDetails();
+        Alert.alert("Success", "Member added successfully");
+      }
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert("Error", error.response?.data?.message || "Failed to add member");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleRemoveMember = async (userId: string) => {
     if (!isAdmin) return;
@@ -114,6 +163,11 @@ const GroupInfoScreen: React.FC = () => {
       ]
     );
   };
+
+  const filteredAvailableUsers = allUsers.filter(u => 
+    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    u.number.includes(searchQuery)
+  );
 
   // Header Animation Styles
   const headerStyle = useAnimatedStyle(() => {
@@ -217,7 +271,13 @@ const GroupInfoScreen: React.FC = () => {
           {/* Members List */}
           <SectionHeader title="Members" count={chat.users?.length} />
           {isAdmin && (
-            <TouchableOpacity style={styles.addMemberRow}>
+            <TouchableOpacity 
+              style={styles.addMemberRow} 
+              onPress={() => {
+                fetchAllUsers();
+                setShowAddModal(true);
+              }}
+            >
               <View style={styles.addIconCircle}>
                 <Ionicons name="person-add" size={20} color={Colors.white} />
               </View>
@@ -256,6 +316,66 @@ const GroupInfoScreen: React.FC = () => {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       )}
+
+      {/* Add Member Modal */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <Ionicons name="close" size={28} color={Colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Add Member</Text>
+              <View style={{ width: 28 }} />
+            </View>
+
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color={Colors.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by name or number"
+                placeholderTextColor={Colors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+
+            {fetchingUsers ? (
+              <ActivityIndicator style={{ marginTop: 20 }} color={Colors.primary} />
+            ) : (
+              <FlatList
+                data={filteredAvailableUsers}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity 
+                    style={styles.userItem} 
+                    onPress={() => handleAddMember(item._id)}
+                  >
+                    <Image 
+                      source={{ uri: item.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+                      style={styles.userAvatar} 
+                    />
+                    <View style={styles.userInfo}>
+                      <Text style={styles.userNameText}>{item.name || "User"}</Text>
+                      <Text style={styles.userNumberText}>{item.number}</Text>
+                    </View>
+                    <Ionicons name="add-circle" size={24} color={Colors.primary} />
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.emptyText}>No users found</Text>
+                }
+                contentContainerStyle={{ paddingBottom: 20 }}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -412,6 +532,79 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    height: SCREEN_HEIGHT * 0.8,
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginHorizontal: 20,
+    paddingHorizontal: 15,
+    borderRadius: 15,
+    height: 45,
+    marginBottom: 20,
+  },
+  searchInput: {
+    flex: 1,
+    color: Colors.text,
+    marginLeft: 10,
+    fontSize: 16,
+  },
+  userItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  userAvatar: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+  },
+  userInfo: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  userNameText: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  userNumberText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  emptyText: {
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 15,
   }
 });
 
