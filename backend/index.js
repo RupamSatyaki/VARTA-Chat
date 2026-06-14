@@ -85,7 +85,8 @@ app.get('/health', (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 SERVER READY: Running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+  console.log(`📡 Network URL: http://192.168.0.105:${PORT}`);
   console.log('--- Initialization Complete ---\n');
 });

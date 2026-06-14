@@ -38,10 +38,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (!socketRef.current) {
       console.log('📡 Initializing socket for user:', userData._id);
+      console.log('🔗 Socket URL:', socketUrl);
+      
       const newSocket = io(socketUrl, {
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
+        transports: ['websocket'], // Force WebSocket to avoid XHR polling errors
       });
 
       socketRef.current = newSocket;
