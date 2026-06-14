@@ -27,6 +27,7 @@ interface Message {
   isDeleted?: boolean;
   readBy?: { user: string; name: string; seenAt: string }[];
   deliveredTo?: { user: string; name: string; deliveredAt: string }[];
+  mentions?: string[];
 }
 
 interface Chat {

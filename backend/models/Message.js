@@ -80,6 +80,12 @@ const messageSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  mentions: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+  ],
   callMeta: {
     callType: { type: String, enum: ['audio', 'video'] },
     status:   { type: String, enum: ['completed', 'missed', 'rejected'] },

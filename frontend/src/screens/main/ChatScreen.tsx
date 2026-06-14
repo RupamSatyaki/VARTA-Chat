@@ -70,21 +70,18 @@ const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const ClickableText = ({ text, style, disabled }: { text: string; style: any; disabled?: boolean }) => {
   const urlRegex = /(https?:\/\/[^\s]+)|(\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b(\/[^\s]*)?)/g;
-  const parts = text.split(urlRegex);
-
-  // Filter out undefined from regex groups
-  const filteredParts = text.match(urlRegex) || [];
+  const mentionRegex = /(@[^\s]+)/g;
   
-  // We need a more reliable way to split and keep matches
   const renderContent = () => {
-    const elements = [];
+    const elements: React.ReactNode[] = [];
     let lastIndex = 0;
+    
+    // Combine both regexes or handle them sequentially
+    // For simplicity, let's just use a combined regex-like splitting approach
+    const combinedRegex = /(https?:\/\/[^\s]+)|(\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b(\/[^\s]*)?)|(@[^\s]+)/g;
     let match;
     
-    // Reset regex index
-    urlRegex.lastIndex = 0;
-    
-    while ((match = urlRegex.exec(text)) !== null) {
+    while ((match = combinedRegex.exec(text)) !== null) {
       // Add text before match
       if (match.index > lastIndex) {
         elements.push(
@@ -94,23 +91,33 @@ const ClickableText = ({ text, style, disabled }: { text: string; style: any; di
         );
       }
       
-      const url = match[0];
-      const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+      const part = match[0];
       
-      elements.push(
-        <Text
-          key={`link-${match.index}`}
-          style={[style, { color: '#34B7F1', textDecorationLine: 'underline', flexShrink: 1 }]}
-          onPress={disabled ? undefined : () => Linking.openURL(fullUrl).catch(err => console.error("Couldn't load page", err))}
-        >
-          {url}
-        </Text>
-      );
+      if (part.startsWith('@')) {
+        elements.push(
+          <Text
+            key={`mention-${match.index}`}
+            style={[style, { color: Colors.secondary, fontWeight: '700' }]}
+          >
+            {part}
+          </Text>
+        );
+      } else {
+        const fullUrl = part.startsWith('http') ? part : `https://${part}`;
+        elements.push(
+          <Text
+            key={`link-${match.index}`}
+            style={[style, { color: '#34B7F1', textDecorationLine: 'underline', flexShrink: 1 }]}
+            onPress={disabled ? undefined : () => Linking.openURL(fullUrl).catch(err => console.error("Couldn't load page", err))}
+          >
+            {part}
+          </Text>
+        );
+      }
       
-      lastIndex = urlRegex.lastIndex;
+      lastIndex = combinedRegex.lastIndex;
     }
     
-    // Add remaining text
     if (lastIndex < text.length) {
       elements.push(
         <Text key={`text-${lastIndex}`} style={style}>
@@ -507,6 +514,9 @@ const ChatScreen: React.FC = () => {
   const [firstUnreadId, setFirstUnreadId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionedUsers, setMentionedUsers] = useState<string[]>([]);
   
   const { socket, isConnected } = useSocket();
   const { userData, userToken } = useAuthStore();
@@ -921,6 +931,21 @@ const ChatScreen: React.FC = () => {
     setMessage(text);
     if (!socket || !isConnected) return;
 
+    // Detect @ Mentions (only for group chats)
+    if (chat.isGroupChat) {
+      const lastChar = text.slice(-1);
+      const words = text.split(/\s/);
+      const lastWord = words[words.length - 1];
+      
+      if (lastWord.startsWith('@')) {
+        const query = lastWord.slice(1).toLowerCase();
+        setMentionSearch(query);
+        setShowMentionSuggestions(true);
+      } else {
+        setShowMentionSuggestions(false);
+      }
+    }
+
     // Detect URL for preview
     const urlRegex = /https?:\/\/[^\s]+/g;
     const matches = text.match(urlRegex);
@@ -958,6 +983,51 @@ const ChatScreen: React.FC = () => {
         receiverId: chat.isGroupChat ? null : user._id 
       });
     }, 2000);
+  };
+
+  const handleSelectMention = (mentionUser: any) => {
+    const words = message.split(/\s/);
+    words.pop(); // Remove the word starting with @
+    const newText = words.join(' ') + (words.length > 0 ? ' ' : '') + `@${mentionUser.name} `;
+    setMessage(newText);
+    setMentionedUsers(prev => [...new Set([...prev, mentionUser._id])]);
+    setShowMentionSuggestions(false);
+  };
+
+  const renderMentionSuggestions = () => {
+    if (!showMentionSuggestions || !chat.isGroupChat) return null;
+
+    const filtered = chat.users.filter((u: any) => 
+      u._id !== userData?._id && 
+      (u.name.toLowerCase().includes(mentionSearch) || u.number?.includes(mentionSearch))
+    );
+
+    if (filtered.length === 0) return null;
+
+    return (
+      <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.mentionSuggestions}>
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.mentionItem} 
+              onPress={() => handleSelectMention(item)}
+            >
+              <Image 
+                source={{ uri: item.profilePic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+                style={styles.mentionAvatar} 
+              />
+              <View>
+                <Text style={styles.mentionName}>{item.name}</Text>
+                <Text style={styles.mentionNumber}>{item.number}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          keyboardShouldPersistTaps="always"
+        />
+      </Animated.View>
+    );
   };
 
   const handleSendMessage = () => {
@@ -1011,19 +1081,20 @@ const ChatScreen: React.FC = () => {
         content: replyingTo.content,
         sender: { name: replyingTo.senderName || 'User' }
       } : null,
-      // If preview is NOT dismissed, let backend handle it, or we could pass it here
-      // For now, if dismissed, we might need a way to tell the backend NOT to preview
+      mentions: mentionedUsers,
     };
 
     socket.emit('new-message', { 
       ...newMessage, 
       chatId: chat._id,
       replyTo: replyingTo?.id,
-      noPreview: isLinkPreviewDismissed // New flag
+      noPreview: isLinkPreviewDismissed,
+      mentions: mentionedUsers
     });
 
     addMessage(chat._id, newMessage);
     setMessage('');
+    setMentionedUsers([]);
     setReplyingTo(null);
     setInputLinkPreview(null);
     setIsLinkPreviewDismissed(false);
@@ -1275,6 +1346,7 @@ const ChatScreen: React.FC = () => {
 
         {/* 3. Footer Input */}
         <SafeAreaView style={styles.footerContainer} edges={['bottom']}>
+          {renderMentionSuggestions()}
           {replyingTo && (
             <Animated.View entering={FadeInDown} exiting={FadeOut} style={styles.replyPreview}>
               <View style={styles.replyBar} />
@@ -2273,6 +2345,36 @@ const styles = StyleSheet.create({
   },
   reactionSummaryEmoji: {
     fontSize: 20,
+  },
+  mentionSuggestions: {
+    maxHeight: 200,
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  mentionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  mentionAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 12,
+  },
+  mentionName: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  mentionNumber: {
+    color: Colors.textSecondary,
+    fontSize: 12,
   },
 });
 

@@ -70,8 +70,8 @@ module.exports = (io, socket) => {
   };
 
   // Handle new message
-  const newMessage = async (newMessageReceived) => {
-    const { senderId, content, type, chatId, replyTo, noPreview } = newMessageReceived;
+    const newMessage = async (newMessageReceived) => {
+    const { senderId, content, type, chatId, replyTo, noPreview, mentions } = newMessageReceived;
 
     if (!senderId || !content || !chatId) {
       return console.log('❌ Invalid message data received');
@@ -98,6 +98,7 @@ module.exports = (io, socket) => {
         chat: chatId,
         replyTo: replyTo || null,
         linkPreview: linkPreviewData,
+        mentions: mentions || [],
         // For 1-on-1, receiver is the other user. For group, it can be null.
         receiver: chat.isGroupChat ? null : chat.users.find(u => u._id.toString() !== senderId.toString())?._id,
         readBy: [{ user: senderId, readAt: Date.now() }] // Sender has obviously read their own message
@@ -136,9 +137,24 @@ module.exports = (io, socket) => {
           senderNumber: sender?.number,
           status: 'sent',
           replyTo: populatedMessage.replyTo,
-          linkPreview: linkPreviewData
+          linkPreview: linkPreviewData,
+          mentions: mentions || []
         });
       });
+      
+      // Special notification for mentioned users (optional socket event)
+      if (mentions && mentions.length > 0) {
+        mentions.forEach(mentionId => {
+          if (mentionId.toString() !== senderId.toString()) {
+            socket.in(mentionId.toString()).emit('user-mentioned', {
+              messageId: message._id,
+              chatId,
+              senderName: sender?.name,
+              content: content.substring(0, 50)
+            });
+          }
+        });
+      }
       
       console.log(`📩 Message relayed to users in chat: ${chatId}`);
 
