@@ -8,7 +8,8 @@ import {
   Image, 
   ActivityIndicator,
   Modal,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -62,15 +63,30 @@ const StatusScreen = () => {
     try {
       setLoading(true);
       const formData = new FormData();
-      const filename = uri.split('/').pop() || 'status.jpg';
+      const filename = uri.split('/').pop()?.split('?')[0] || 'status.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      // @ts-ignore
-      formData.append('image', { uri, name: filename, type });
+      if (Platform.OS === 'web') {
+        const res = await fetch(uri);
+        const blob = await res.blob();
+        const file = new File([blob], filename, { type });
+        formData.append('image', file);
+      } else {
+        // @ts-ignore
+        formData.append('image', { 
+          uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri, 
+          name: filename, 
+          type 
+        });
+      }
 
       const uploadRes = await apiClient.post('/messages/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Accept': 'application/json' },
+        transformRequest: (data, headers) => {
+          delete headers['Content-Type']; // Let browser set boundary automatically
+          return data;
+        },
       });
 
       if (uploadRes.data.success) {
