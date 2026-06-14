@@ -118,21 +118,33 @@ const PollBubble = ({
   );
 };
 
-const ClickableText = ({ text, style, disabled }: { text: string; style: any; disabled?: boolean }) => {
-  const urlRegex = /(https?:\/\/[^\s]+)|(\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b(\/[^\s]*)?)/g;
-  const mentionRegex = /(@[^\s]+)/g;
-  
+const ClickableText = ({ text, style, disabled, chatUsers }: { text: string; style: any; disabled?: boolean; chatUsers?: any[] }) => {
   const renderContent = () => {
     const elements: React.ReactNode[] = [];
-    let lastIndex = 0;
     
-    // Combine both regexes or handle them sequentially
-    // For simplicity, let's just use a combined regex-like splitting approach
-    const combinedRegex = /(https?:\/\/[^\s]+)|(\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b(\/[^\s]*)?)|(@[^\s]+)/g;
+    // Sort mentions by length descending to avoid partial matches
+    const sortedMentions = chatUsers 
+      ? chatUsers
+          .map(u => `@${u.name}`)
+          .sort((a, b) => b.length - a.length)
+      : [];
+
+    // Pattern for URLs and potential mentions
+    const urlPattern = '(https?:\\/\\/[^\\s]+)|(\\b[a-zA-Z0-9-]+\\.[a-zA-Z]{2,}\\b(\\/[^\\s]*)?)';
+    
+    let combinedRegex: RegExp;
+    if (sortedMentions.length > 0) {
+      const mentionPattern = sortedMentions.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+      combinedRegex = new RegExp(`${urlPattern}|(${mentionPattern})`, 'g');
+    } else {
+      // Fallback
+      combinedRegex = new RegExp(`${urlPattern}|(@[^\\s]+)`, 'g');
+    }
+
+    let lastIndex = 0;
     let match;
     
     while ((match = combinedRegex.exec(text)) !== null) {
-      // Add text before match
       if (match.index > lastIndex) {
         elements.push(
           <Text key={`text-${lastIndex}`} style={style}>
@@ -163,6 +175,23 @@ const ClickableText = ({ text, style, disabled }: { text: string; style: any; di
             {part}
           </Text>
         );
+      }
+      lastIndex = combinedRegex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      elements.push(
+        <Text key={`text-end`} style={style}>
+          {text.substring(lastIndex)}
+        </Text>
+      );
+    }
+    
+    return elements;
+  };
+
+  return <Text style={style}>{renderContent()}</Text>;
+};
       }
       
       lastIndex = combinedRegex.lastIndex;
@@ -467,6 +496,7 @@ const MessageItem = React.memo(({
                         item.isDeleted && styles.deletedText
                       ]}
                       disabled={selectedMessages.length > 0}
+                      chatUsers={chat.users}
                     />
                     {item.isEdited && !item.isDeleted && (
                       <Text style={styles.editedTag}> (edited)</Text>
