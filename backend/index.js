@@ -63,6 +63,10 @@ console.log('   - Route initialized: /api/chats (Chat System)');
 app.use('/api/calls', require('./routes/callRoutes'));
 console.log('   - Route initialized: /api/calls (Call History)');
 
+// Register Status Routes
+app.use('/api/status', require('./routes/statusRoutes'));
+console.log('   - Route initialized: /api/status (Status/Stories)');
+
 console.log('✔ All API routes successfully initialized');
 
 // Basic Route

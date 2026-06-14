@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import HomeScreen from '../screens/main/HomeScreen';
 import CallsScreen from '../screens/main/CallsScreen';
+import StatusScreen from '../screens/main/StatusScreen';
 import Header from '../components/common/Header';
 import Sidebar from '../components/layout/Sidebar/Sidebar';
 import { Colors } from '../theme/colors';
@@ -61,7 +62,7 @@ const TabNavigator = () => {
         })}
       >
         <Tab.Screen name="Chats" component={HomeScreen} />
-        <Tab.Screen name="Updates" component={HomeScreen} />
+        <Tab.Screen name="Updates" component={StatusScreen} />
         <Tab.Screen name="Communities" component={HomeScreen} />
         <Tab.Screen name="Calls" component={CallsScreen} />
       </Tab.Navigator>
