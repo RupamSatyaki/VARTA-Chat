@@ -71,9 +71,9 @@ module.exports = (io, socket) => {
 
   // Handle new message
     const newMessage = async (newMessageReceived) => {
-    const { senderId, content, type, chatId, replyTo, noPreview, mentions } = newMessageReceived;
+    const { senderId, content, type, chatId, replyTo, noPreview, mentions, poll } = newMessageReceived;
 
-    if (!senderId || !content || !chatId) {
+    if (!senderId || (!content && type !== 'poll') || !chatId) {
       return console.log('❌ Invalid message data received');
     }
 
@@ -84,7 +84,7 @@ module.exports = (io, socket) => {
 
       // Check for link preview
       let linkPreviewData = null;
-      const url = extractUrl(content);
+      const url = extractUrl(content || '');
       if (url && (type === 'text' || !type) && !noPreview) {
         linkPreviewData = await fetchLinkPreviewData(url);
       }
@@ -92,13 +92,14 @@ module.exports = (io, socket) => {
       // Save message to database
       const message = await Message.create({
         sender: senderId,
-        content: content,
+        content: content || (type === 'poll' ? `Poll: ${poll?.question}` : ''),
         type: type || 'text',
         status: 'sent',
         chat: chatId,
         replyTo: replyTo || null,
         linkPreview: linkPreviewData,
         mentions: mentions || [],
+        poll: poll || null,
         // For 1-on-1, receiver is the other user. For group, it can be null.
         receiver: chat.isGroupChat ? null : chat.users.find(u => u._id.toString() !== senderId.toString())?._id,
         readBy: [{ user: senderId, readAt: Date.now() }] // Sender has obviously read their own message
@@ -138,7 +139,8 @@ module.exports = (io, socket) => {
           status: 'sent',
           replyTo: populatedMessage.replyTo,
           linkPreview: linkPreviewData,
-          mentions: mentions || []
+          mentions: mentions || [],
+          poll: message.poll
         });
       });
       
@@ -407,6 +409,55 @@ module.exports = (io, socket) => {
     }
   };
 
+  const votePoll = async ({ messageId, optionIndex, userId, chatId }) => {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message || message.type !== 'poll') return;
+
+      const option = message.poll.options[optionIndex];
+      if (!option) return;
+
+      // Ensure votes is an array
+      if (!option.votes) option.votes = [];
+
+      const userVoteIndex = option.votes.findIndex(v => v.toString() === userId.toString());
+
+      if (userVoteIndex > -1) {
+        // Remove vote
+        option.votes.splice(userVoteIndex, 1);
+      } else {
+        // Add vote
+        // If allowMultipleAnswers is false, remove from other options first
+        if (!message.poll.allowMultipleAnswers) {
+          message.poll.options.forEach(opt => {
+            if (!opt.votes) opt.votes = [];
+            const idx = opt.votes.findIndex(v => v.toString() === userId.toString());
+            if (idx > -1) opt.votes.splice(idx, 1);
+          });
+        }
+        option.votes.push(userId);
+      }
+
+      await message.save();
+
+      // Broadcast update to all users in chat
+      const chat = await Chat.findById(chatId).populate("users", "_id");
+      if (chat) {
+        chat.users.forEach(user => {
+          io.in(user._id.toString()).emit('poll-updated', {
+            messageId,
+            poll: message.poll,
+            chatId
+          });
+        });
+      }
+      
+      console.log(`🗳️ Poll updated: ${messageId}`);
+    } catch (err) {
+      console.error('Error voting in poll:', err);
+    }
+  };
+
   // Register events
   socket.on('join-chat', joinChat);
   socket.on('new-message', newMessage);
@@ -417,4 +468,5 @@ module.exports = (io, socket) => {
   socket.on('stop-typing', stopTyping);
   socket.on('edit-message', editMessage);
   socket.on('delete-message', deleteMessage);
+  socket.on('vote-poll', votePoll);
 };

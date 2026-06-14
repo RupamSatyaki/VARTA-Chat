@@ -28,6 +28,11 @@ interface Message {
   readBy?: { user: string; name: string; seenAt: string }[];
   deliveredTo?: { user: string; name: string; deliveredAt: string }[];
   mentions?: string[];
+  poll?: {
+    question: string;
+    options: { text: string; votes: string[] }[];
+    allowMultipleAnswers?: boolean;
+  };
 }
 
 interface Chat {

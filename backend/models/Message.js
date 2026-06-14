@@ -23,7 +23,7 @@ const messageSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'file', 'call'],
+    enum: ['text', 'image', 'video', 'audio', 'file', 'call', 'poll'],
     default: 'text',
   },
   status: {
@@ -86,6 +86,20 @@ const messageSchema = new mongoose.Schema({
       ref: 'User',
     },
   ],
+  poll: {
+    question: String,
+    options: [{
+      text: String,
+      votes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }]
+    }],
+    allowMultipleAnswers: {
+      type: Boolean,
+      default: false
+    }
+  },
   callMeta: {
     callType: { type: String, enum: ['audio', 'video'] },
     status:   { type: String, enum: ['completed', 'missed', 'rejected'] },
