@@ -192,24 +192,6 @@ const ClickableText = ({ text, style, disabled, chatUsers }: { text: string; sty
 
   return <Text style={style}>{renderContent()}</Text>;
 };
-      }
-      
-      lastIndex = combinedRegex.lastIndex;
-    }
-    
-    if (lastIndex < text.length) {
-      elements.push(
-        <Text key={`text-${lastIndex}`} style={style}>
-          {text.substring(lastIndex)}
-        </Text>
-      );
-    }
-    
-    return elements;
-  };
-
-  return <Text style={[style, { flexWrap: 'wrap', flexShrink: 1 }]}>{renderContent()}</Text>;
-};
 
 const MessageItem = React.memo(({ 
   item, 
